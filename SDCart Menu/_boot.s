@@ -659,10 +659,14 @@ Done
 	.endp
 	
 .proc RebootCode
+	ldx #1
+@
 	lda VCount
 	rne
 	lda VCount
 	req
+	dex
+	bpl @-
 	jmp $E477
 	.endp
 	
