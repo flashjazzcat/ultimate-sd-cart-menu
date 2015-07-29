@@ -83,6 +83,7 @@ display_error
 reboot_cmd
 	jsr send_fpga_ack_wait_clear
 	sei				; prevent GINTLK check in deferred VBI
+;	jsr ForceColdStart
 	jsr $100
 
 read_keyboard
@@ -666,6 +667,28 @@ Done
 	jmp $E477
 	.endp
 	
+	
+//
+//	Force OS to cold boot
+//
+
+	
+	.local ForceColdStart
+	lda #0
+	sta NMIEN
+	tax
+@
+	sta $0000,x
+	sta $0200,x
+	sta $0300,x
+	sta $0400,x
+	sta $0500,x
+	inx
+	bne @-
+@
+	mva #$FF $0244
+	rts
+	.endl
 	
 	
 	
