@@ -104,6 +104,7 @@ TriggerState	.ds 1
 StickState	.ds 1
 MotionFlag	.ds 1
 Timer		.ds 1
+WaitCmdFlag	.ds 1
 
 //
 // Display List constants

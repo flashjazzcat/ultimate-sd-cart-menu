@@ -47,6 +47,7 @@ start	.proc 				;Cartridge start, RAM, graphics 0 and IOCB no for the editor (E:
 main	.proc 
 	lda #0
 	sta RevFlag
+	sta WaitCmdFlag
 	mva #$FF CH			; set last key pressed to none
 	jsr copy_wait_for_reboot
 	mva #3 BOOT			; patch reset - from mapping the atari (revised) appendix 11
@@ -58,6 +59,7 @@ main	.proc
 	jsr HomeSelection
 main_loop
 	jsr HighlightCurrentEntry
+PollLoop
 	lda ULTIMATE_CART_CMD_BYTE
 	cmp #CMD.Refresh
 	beq display_cmd
@@ -65,6 +67,8 @@ main_loop
 	beq display_error
 	cmp #CMD.Reboot
 	beq reboot_cmd
+	bit WaitCmdFlag
+	bmi PollLoop
 	jmp Read_keyboard
 	
 display_cmd
@@ -152,7 +156,10 @@ KeyList
 .proc UpDir				; Back up one level in directory tree
 	jsr change_dir_message
 	lda #CCTL.UP_DIR
-	jmp send_fpga_cmd
+	jsr send_fpga_cmd
+	sec
+	ror WaitCmdFlag
+	rts
 	.endp
 	
 	
@@ -160,7 +167,10 @@ KeyList
 ;	jsr HomeSelection
 	jsr next_page_message
 	lda #CCTL.NEXT_PAGE
-	jmp send_fpga_cmd
+	jsr send_fpga_cmd
+	sec
+	ror WaitCmdFlag
+	rts
 	.endp
 	
 	
@@ -212,6 +222,7 @@ IsLastEntry				; if we're at the final entry, load next page of list
 	
 	
 .proc CursorLeft
+	jmp UpDir
 	rts
 	.endp
 	
@@ -378,6 +389,7 @@ Done
 //
 
 .proc	send_fpga_cmd
+	lsr WaitCmdFlag
 	sta $D500
 	rts
 	.endp
@@ -442,12 +454,14 @@ wait_clear
 
 
 .proc	starting_cartridge_message
+	jsr OpenWindow
 	ldax #StartCartMsg
 	jmp ShowMsg
 	.endp
 	
 
 .proc	change_dir_message
+	jsr OpenWindow
 	ldax #ChangeDirMsg
 	jmp ShowMsg
 	.endp
@@ -455,6 +469,7 @@ wait_clear
 	
 	
 .proc	next_page_message
+	jsr OpenWindow
 	ldax #NextPageMsg
 	jmp ShowMsg
 	.endp
@@ -462,6 +477,8 @@ wait_clear
 	
 	
 .proc	ShowMsg
+	jsr PutString
+	mva #0 RevFlag
 	rts
 	.endp
 
@@ -471,9 +488,9 @@ wait_clear
 	sei
 	mva #$0 NMIEN			; disable iterrupts
 	mwa OSVBI VVBLKI		; restore OS VBL
-	lda #0
-	sta SDMCTL
-	sta DMACTL			; make sure screen blanks out immediately
+;	lda #0
+;	sta SDMCTL
+;	sta DMACTL			; make sure screen blanks out immediately
 	mva #$40 NMIEN			; enable VBI, disable DLI
 	cli
 	rts
@@ -703,11 +720,11 @@ txtFooter
 	.byte 'U=Up dir, SPACE=Next Page, X=Disable',0
 	
 StartCartMsg
-	.byte ' Starting Cartridge... ',0
+	.byte 'Starting Cartridge...',0
 ChangeDirMsg
-	.byte ' Changing Directory... ',0
+	.byte 'Changing Directory...',0
 NextPageMsg
-	.byte ' Next page... ',0
+	.byte 'Next page...',0
 ErrorMsg
 	.byte 'Error:',0
 	

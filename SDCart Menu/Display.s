@@ -15,7 +15,7 @@
 	mwa #DLI VDSLST
 	mwa VVBLKI OSVBI
 	mwa #VBI VVBLKI
-	mva #$C0 NMIEN
+	mva #$40 NMIEN			; DLIs disabled for the moment
 	ldx #MenuLines+1
 	lda #$10
 @
@@ -87,6 +87,37 @@ Loop
 	rts
 	.endp
 	
+	
+	
+//
+//	Open pop-up notification window
+//
+
+.proc OpenWindow
+	mva #10 cy
+Loop
+	ldy cy
+	lda LineTable.Lo,y
+	sta ScrPtr
+	lda LineTable.Hi,y
+	sta ScrPtr+1
+	ldy #6
+	lda #$80
+@
+	sta (ScrPtr),y
+	iny
+	cpy #34
+	bcc @-
+	inc cy
+	lda cy
+	cmp #14
+	bcc Loop
+	mva #$80 RevFlag	; set up reverse video printing
+	mva #11 cy
+	mva #8 cx
+	rts
+	.endp
+
 
 //
 //	Pad to end of line
