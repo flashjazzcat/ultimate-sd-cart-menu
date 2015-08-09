@@ -89,7 +89,7 @@ display_error
 reboot_cmd
 	jsr send_fpga_ack_wait_clear
 	jsr CleanUp
-	sei				; prevent GINTLK check in deferred VBI
+;	sei				; prevent GINTLK check in deferred VBI
 	jsr $100
 
 read_keyboard
@@ -160,6 +160,7 @@ KeyList
 	lda DirLevel
 	beq Done
 	jsr change_dir_message
+	jsr HomeSelection
 	lda #CCTL.UP_DIR
 	jsr send_fpga_cmd
 	sec
@@ -291,12 +292,17 @@ IsLastEntry				; if we're at the final entry, load next page of list
 	cmp #EntryType.Dir
 	beq IsDir
 	jsr starting_cartridge_message	; not Nul and not Dir, so must be a file
+	ldy CurrEntry
 	jmp SendSelection
 IsDir
 	jsr change_dir_message		; it's a directory
 	inc DirLevel			; keep track of where we are in the tree
+	lda CurrEntry
+	pha
+	jsr HomeSelection
+	pla
+	tay
 SendSelection
-	ldy CurrEntry
 	iny				; FPGA expects 1-20, so bump value
 	tya
 	jsr send_fpga_cmd
@@ -513,8 +519,8 @@ wait_clear
 	lda #0
 	sta SDMCTL
 	sta DMACTL			; make sure screen blanks out immediately
-	mva #$40 NMIEN			; enable VBI, disable DLI
-	cli
+;	mva #$40 NMIEN			; enable VBI, disable DLI
+;	cli
 	rts
 	.endp
 

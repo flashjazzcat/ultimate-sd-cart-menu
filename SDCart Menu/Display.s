@@ -17,7 +17,7 @@
 	mwa #VBI VVBLKI
 	mva #$C0 NMIEN
 	ldx #MenuLines+2
-	lda #$80
+	lda #$0E
 @
 	sta ColourTable,x
 	dex
@@ -43,7 +43,7 @@
 	ldx DLICount
 	lda ColourTable,x
 	sta wsync
-	sta ColPf2
+	sta ColPf1
 	inc DLICount
 	pla
 	tax
