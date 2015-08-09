@@ -577,23 +577,35 @@ Finished
 //
 	
 .proc DisplayEntry
-	ldx #0
-	stx cx
-	cpb Entry CurrEntry
-	sne
-	ldx #128
-	stx RevFlag
-	lda #'['
+	lda #0
+	sta RevFlag
+	sta cx
+	lda #1
 	jsr PutChar
 	lda tmp2
+	eor #$80
 	jsr PutChar
-	lda #']'
+	lda #2
 	jsr PutChar
-	lda #$20	; space
+	cpb Entry CurrEntry
+	bne @+
+	lda #1
+	jsr PutChar
+	ldx #128
+	stx RevFlag
+	jsr GetNamePtr
+	jsr PutFileName
+	jsr PadFileName
+	lda #2
+	jmp PutChar
+@
+	lda #$20
 	jsr PutChar
 	jsr GetNamePtr
 	jsr PutFileName
-	jmp PadLine
+	jsr PadFileName
+	lda #$20
+	jmp PutChar
 	.endp
 	
 	
@@ -605,8 +617,10 @@ Finished
 	lda PrevEntry		; see if we need to un-highlight old entry
 	cmp CurrEntry
 	beq Done
+	ldx #0
 	jsr ReverseItem
 	lda CurrEntry
+	ldx #128
 	jsr ReverseItem
 	mva CurrEntry PrevEntry
 Done
@@ -619,20 +633,35 @@ Done
 //
 
 .proc	ReverseItem
+	stx tmp1
 	clc
 	adc #2
 	tay
 	lda LineTable.Lo,y
+	clc
+	adc #3
 	sta ScrPtr
 	lda LineTable.Hi,y
+	adc #0
 	sta ScrPtr+1
-	ldy #38
+	ldy #34
+	lda #0
+	bit tmp1
+	spl
+	lda #66
+	sta (ScrPtr),y
+	dey
 @
 	lda (ScrPtr),y
 	eor #$80
 	sta (ScrPtr),y
 	dey
-	bpl @-
+	bne @-
+	lda #0
+	bit tmp1
+	spl
+	lda #65
+	sta (ScrPtr),y
 	rts
 	.endp
 	
@@ -795,6 +824,11 @@ scancodes
 	
 	org ERROR_MSG_BUFFER
 	.byte 'Test error message',0
+
+	.align $0200	
+	
+FontData
+	ins 'sdcart.fnt'
 	
 ; ************************ CARTRIDGE CONTROL BLOCK *****************
 

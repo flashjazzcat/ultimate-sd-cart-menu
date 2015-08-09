@@ -11,6 +11,7 @@
 	jsr set_colours			; set up the colors
 	mva #0 NMIEN
 	sei
+	mva #>FontData CHBAS
 	mwa #DisplayList SDLSTL
 	mwa #DLI VDSLST
 	mwa VVBLKI OSVBI
@@ -120,14 +121,32 @@ Loop
 
 
 //
-//	Pad to end of line (actually 39th column)
+//	Pad to end of line
 //
 
 .proc PadLine
 	lda #32
 Loop
 	ldx cx
-	cpx #39
+	cpx #40
+	bcs Done
+	jsr PutChar
+	jmp Loop
+Done
+	mva #0 RevFlag
+	rts
+	.endp
+	
+	
+//
+//	Pad filename
+//
+
+.proc PadFileName
+	lda #32
+Loop
+	ldx cx
+	cpx #37
 	bcs Done
 	jsr PutChar
 	jmp Loop

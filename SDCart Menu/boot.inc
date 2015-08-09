@@ -250,6 +250,8 @@ STICK0	equ	$278
 STICK1	equ	$279
 STRIG0	equ	$284
 STRIG1	equ	$285
+CHBAS	equ	$2F4
+
 
 
 
