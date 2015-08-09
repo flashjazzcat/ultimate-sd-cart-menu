@@ -15,22 +15,22 @@
 	mwa #DLI VDSLST
 	mwa VVBLKI OSVBI
 	mwa #VBI VVBLKI
-	mva #$40 NMIEN			; DLIs disabled for the moment
-	ldx #MenuLines+1
-	lda #$10
+	mva #$C0 NMIEN
+	ldx #MenuLines+2
+	lda #$80
 @
-	sta ColourTable-1,x
+	sta ColourTable,x
 	dex
-	bne @-
+	bpl @-
 	cli
 	rts	
 	.endp
 	
 	
 .proc	set_colours
-	mva #$10 color2		; background
+	mva #$80 color2		; background
 	mva #$0E color1		; foreground (luma)
-	mva #$10 color4		; border
+	mva #$80 color4		; border
 	rts
 	.endp
 	
@@ -120,14 +120,14 @@ Loop
 
 
 //
-//	Pad to end of line
+//	Pad to end of line (actually 39th column)
 //
 
 .proc PadLine
 	lda #32
 Loop
 	ldx cx
-	cpx #40
+	cpx #39
 	bcs Done
 	jsr PutChar
 	jmp Loop
@@ -143,16 +143,24 @@ Done
 //
 	
 	.proc AStoIN
+	pha
+	and #128
+	sta tmp
+	pla
+	and #127
 	cmp #$60
 	bcc @+
+	ora tmp
 	rts
 @
 	cmp #$20
 	bcs @+
 	adc #$40
+	ora tmp
 	rts
 @
 	sbc #$20
+	ora tmp
 	rts
 	.endp
 	
@@ -192,7 +200,20 @@ Done
 
 	.proc PutFilename
 	stax text_out_ptr
+	ldy #0			; figure out length of string
+	sty tmp3		; ellipsis flag
+@
+	lda (text_out_ptr),y
+	beq FoundEOS
+	iny
+	cpy #31
+	bcc @-
+	ror tmp3		; say the name is truncated
+	ldx #28
+	bne ShortString
+FoundEOS			; if we end up here, filename fits on the screen
 	ldx #31
+ShortString
 	ldy #0
 Loop
 	lda (text_out_ptr),y
@@ -201,6 +222,10 @@ Loop
 	iny
 	dex
 	bne Loop
+	bit tmp3		; are we to display an ellipsis?
+	bpl Done
+	ldax #txtEllipsis
+	bne PutString
 Done
 	rts
 	.endp
@@ -222,6 +247,34 @@ Done
 	rts
 	.endp
 	
+	
+//
+//	Display scroll indicators
+//
+	
+	.proc DisplayScrollIndicators
+	lda ULTIMATE_CART_LIST_FLAG
+	pha
+	ldy #' '
+	and #ListFlags.FilesBefore
+	seq
+	ldy #28
+	mva #39 cx
+	mva #2 cy
+	tya
+	jsr PutChar
+	pla
+	ldy #' '
+	and #ListFlags.FilesAfter
+	seq
+	ldy #29
+	mva #39 cx
+	mva #21 cy
+	tya
+	jmp PutChar
+	.endp
+
+
 
 //
 //	Table of line addresses
@@ -350,7 +403,7 @@ DisplayList
 	.byte DL.Mode2+DL.LMS+DL.NMI
 	.word FrameBuffer
 	
-	.rept 21 ; 23
+	.rept 23
 	.byte DL.Mode2+DL.NMI
 	.endr
 	

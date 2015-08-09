@@ -50,11 +50,13 @@ sm_ptr = $58				; screen memory
 ; Atari -> FPGA commands (Sent as D5xx access)
 ; 1-20 select item n
 ; 64 disable cart
+; 127 prev page
 ; 128 next page
 ; 129 up directory
 ; 130 reset
 ; 255 acknowledge
 D500_DISABLE_BYTE = 64
+D500_PREV_PAGE_BYTE = 127
 D500_NEXT_PAGE_BYTE = 128
 D500_UP_DIR_BYTE = 129
 D500_RESET_BYTE = 130
@@ -65,6 +67,11 @@ D500_RESET_BYTE = 130
 ; 2 error (message at $B300)
 ; 255 reboot
 ULTIMATE_CART_CMD_BYTE = $AFF0
+
+; Directory list Flag
+; bit 0 - more files above, bit 1 - more files below
+ULTIMATE_CART_LIST_FLAG_BYTE = $AFF1
+
 
 ; ************************ VARIABLES ****************************
 character 	= $80
@@ -100,6 +107,7 @@ main	.proc
 	mwa #reset_routine CASINI
 	jsr clear_screen
 	jsr output_header
+	jsr output_footer
 	
 ; main loop
 main_loop
@@ -138,13 +146,17 @@ reboot_cmd
 read_keyboard
 	ldx CH
 	cpx #$FF
-	beq end_key
+	bne key_pressed
+	jmp end_key
 ; key pressed
+key_pressed
 	mva #$FF CH		; set last key pressed to none
 	lda scancodes,x
 	cmp #$FF
-	beq end_key
+	bne check_reboot
+	jmp end_key
 ; check for X (reboot)
+check_reboot
 	cmp #"X"
 	bne check_up
 	lda #D500_DISABLE_BYTE
@@ -161,9 +173,23 @@ check_up
 check_space
 ; check_for space (next page)
 	cmp #" "
-	bne check_item
-	jsr next_page_message
+	bne check_z
+	lda ULTIMATE_CART_LIST_FLAG_BYTE	; are there more files?
+	and #$02
+	beq end_key				; no
+	jsr next_page_message			; yes there are, display message
 	lda #D500_NEXT_PAGE_BYTE
+	jsr send_fpga_cmd
+	jmp end_key
+check_z
+; check_for z (prev page)
+	cmp #"Z"
+	bne check_item
+	lda ULTIMATE_CART_LIST_FLAG_BYTE	; are there previous files?
+	and #$01
+	beq end_key				; no
+	jsr prev_page_message			; yes there are, display message
+	lda #D500_PREV_PAGE_BYTE
 	jsr send_fpga_cmd
 	jmp end_key
 check_item
@@ -233,16 +259,38 @@ wait_clear
 	.endp
 
 .proc	output_header
-	mva #2 text_out_x
+	mva #0 text_out_x
 	mva #0 text_out_y
 	mwa #top_text text_out_ptr
 	mva #(.len top_text) text_out_len
 	jsr output_text_inverted
 	rts
 	.endp
-	
+
+.proc	output_list_arrows
+	mwa sm_ptr tmp_ptr
+up_arrow
+	lda ULTIMATE_CART_LIST_FLAG_BYTE
+	and #$01
+	beq down_arrow
+	ldy #0
+	lda #92	; up arrow
+	ora #$80
+	sta (tmp_ptr),y
+down_arrow
+	lda ULTIMATE_CART_LIST_FLAG_BYTE
+	and #$02
+	beq exit
+	ldy #1
+	lda #93	; down arrow
+	ora #$80
+	sta (tmp_ptr),y
+exit
+	rts
+	.endp
+
 .proc	output_footer
-	mva #2 text_out_x
+	mva #0 text_out_x
 	mva #23 text_out_y
 	mwa #bottom_text text_out_ptr
 	mva #(.len bottom_text) text_out_len
@@ -286,6 +334,7 @@ wait_key
 .proc	output_directory_entries
 	jsr clear_screen
 	jsr output_header
+	jsr output_list_arrows
 	jsr output_footer
 	
 	mwa #$b000 dir_ptr
@@ -360,6 +409,15 @@ end_of_page
 	mva #13 text_out_x
 	mwa #next_page_text text_out_ptr
 	mva #(.len next_page_text) text_out_len
+	jsr output_text_inverted
+	rts
+	.endp
+	
+.proc	prev_page_message
+	mva #11 text_out_y
+	mva #13 text_out_x
+	mwa #prev_page_text text_out_ptr
+	mva #(.len prev_page_text) text_out_len
 	jsr output_text_inverted
 	rts
 	.endp
@@ -476,10 +534,10 @@ endoftext
 ; ************************ DATA ****************************
 	
 	.local top_text
-	.byte '     Ultimate Cartridge Menu        '
+	.byte '       Ultimate Cartridge Menu          '
 	.endl
 	.local bottom_text
-	.byte 'U=Up dir, SPACE=Next Page, X=Disable'
+	.byte 'U=UpDir, SPACE/Z=Page Down/Up, X=Disable'
 	.endl
 	
 	.local loading_text
@@ -488,6 +546,10 @@ endoftext
 	
 	.local directory_text
 	.byte ' Changing Directory... '
+	.endl
+	
+	.local prev_page_text
+	.byte ' Prev page... '
 	.endl
 	
 	.local next_page_text

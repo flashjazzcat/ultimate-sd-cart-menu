@@ -34,6 +34,7 @@ sm_ptr		equ $58			; screen memory
 
 	.enum CCTL
 DISABLE		= 64
+PREV_PAGE	= 127
 NEXT_PAGE	= 128
 UP_DIR		= 129
 RESET		= 130
@@ -45,6 +46,12 @@ ACK		= 255
 Refresh		= 1
 Error		= 2
 Reboot		= 255
+	.ende
+	
+	
+	.enum ListFlags
+FilesBefore	= 1
+FilesAfter	= 2
 	.ende
 	
 
@@ -64,7 +71,8 @@ MenuLines	equ 20
 ; 2 error (message at $B300)
 ; 255 reboot
 
-ULTIMATE_CART_CMD_BYTE	equ $AFF0
+ULTIMATE_CART_CMD	equ $AFF0
+ULTIMATE_CART_LIST_FLAG equ $AFF1 ; bit 0 = more files below, bit 1 = more files above
 DIR_BUFFER		equ $B000
 ERROR_MSG_BUFFER	equ $B300
 COMMAND_BUFFER		equ $AFF0
@@ -90,6 +98,7 @@ text_out_len	.ds 2
 shortcut_buffer	.ds 2
 RevFlag		.ds 1		; bit 7 = 1: display reverse video
 ScrPtr		.ds 2		; current display data
+tmp		.ds 1
 tmp1		.ds 1
 tmp2		.ds 1
 tmp3		.ds 1
@@ -105,6 +114,7 @@ StickState	.ds 1
 MotionFlag	.ds 1
 Timer		.ds 1
 WaitCmdFlag	.ds 1
+DirLevel	.ds 1		; keeps track of where we are in the directory tree
 
 //
 // Display List constants

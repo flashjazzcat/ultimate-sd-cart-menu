@@ -48,6 +48,7 @@ main	.proc
 	lda #0
 	sta RevFlag
 	sta WaitCmdFlag
+	sta DirLevel			; start in root directory
 	mva #$FF CH			; set last key pressed to none
 	jsr copy_wait_for_reboot
 	mva #3 BOOT			; patch reset - from mapping the atari (revised) appendix 11
@@ -55,12 +56,13 @@ main	.proc
 	jsr InitJoystick
 	jsr SetUpDisplay
 	jsr clear_screen
-	jsr output_header
+	jsr DisplayHeader
+	jsr DisplayFooter
 	jsr HomeSelection
 main_loop
 	jsr HighlightCurrentEntry
 PollLoop
-	lda ULTIMATE_CART_CMD_BYTE
+	lda ULTIMATE_CART_CMD
 	cmp #CMD.Refresh
 	beq display_cmd
 	cmp #CMD.Error
@@ -72,7 +74,7 @@ PollLoop
 	jmp Read_keyboard
 	
 display_cmd
-	jsr HomeSelection
+;	jsr HomeSelection
 	jsr RefreshList
 	jsr send_fpga_ack_wait_clear	; wait for the FPGA to clear the cmd byte
 	jmp main_loop
@@ -86,6 +88,7 @@ display_error
 	
 reboot_cmd
 	jsr send_fpga_ack_wait_clear
+	jsr CleanUp
 	sei				; prevent GINTLK check in deferred VBI
 	jsr $100
 
@@ -103,8 +106,8 @@ read_keyboard
 	bcc @+
 	sbc #'A'			; carry is set
 	cmp Entries			; see if we overshot the end of the list
-	bcc DoShortcut
 	bcs Main_Loop
+	jmp DoShortcut
 @
 	pha
 	lsr MessageFlag
@@ -133,7 +136,7 @@ KeyFound
 	pha
 	rts
 KeyList
-	.byte 9
+	.byte 10
 	Target LaunchItem,Key.Return
 	Target CursorUp,Key.Up
 	Target CursorDown,Key.Down
@@ -143,7 +146,7 @@ KeyList
 	Target UpDir,Key.U
 	Target NextPage,Key.Space
 	Target NextPage,Key.CtrlDn
-;	Target PrevPage,Key.CtrlUp
+	Target PageUp,Key.CtrlUp
 	.endp
 	
 
@@ -154,25 +157,59 @@ KeyList
 	
 	
 .proc UpDir				; Back up one level in directory tree
+	lda DirLevel
+	beq Done
 	jsr change_dir_message
 	lda #CCTL.UP_DIR
 	jsr send_fpga_cmd
 	sec
 	ror WaitCmdFlag
+	dec DirLevel			; say we backed up the directory tree
+Done
 	rts
 	.endp
 	
 	
+.proc PrevPage
+	lda ULTIMATE_CART_LIST_FLAG
+	and #ListFlags.FilesBefore	; see if there are any prior entries
+	beq Done
+	jsr EndSelection
+	lda #CCTL.PREV_PAGE
+	jsr send_fpga_cmd
+	sec
+	ror WaitCmdFlag
+Done
+	rts
+	.endp
+	
+
+	
 .proc NextPage				; Display next page of entries
-;	jsr HomeSelection
-	jsr next_page_message
+	lda ULTIMATE_CART_LIST_FLAG
+	and #ListFlags.FilesAfter	; see if there are any more entries
+	beq Done
+	jsr HomeSelection
 	lda #CCTL.NEXT_PAGE
 	jsr send_fpga_cmd
 	sec
 	ror WaitCmdFlag
+Done
 	rts
 	.endp
 	
+	
+	
+.proc PageUp
+	jsr PrevPage
+	beq @+				; if PrevPage didn't do anything
+	jsr HomeSelection		; otherwise home the cursor
+@
+	rts
+	.endp
+	
+	
+
 	
 .proc DoShortcut			; Launch item via shortcut (pass item 0-19 in A)
 	sta tmp3			; save item
@@ -197,11 +234,9 @@ Done
 	
 	
 .proc CursorUp
-	lda CurrEntry			; this will change when we're able to display the previous page
-	beq @+				; for now, just abort if we're at the top of the list
-	jsr PrevItem
-@
-	rts
+	lda CurrEntry
+	bne PrevItem
+	jmp PrevPage
 	.endp
 	
 	
@@ -212,8 +247,7 @@ Done
 	sbc #1
 	cmp CurrEntry			; is Entry < Entries - 1 ?
 	beq IsLastEntry
-	bcc @+
-	jsr NextItem
+	bcs NextItem
 @
 	rts
 IsLastEntry				; if we're at the final entry, load next page of list
@@ -257,10 +291,10 @@ IsLastEntry				; if we're at the final entry, load next page of list
 	cmp #EntryType.Dir
 	beq IsDir
 	jsr starting_cartridge_message	; not Nul and not Dir, so must be a file
-	jsr CleanUp
 	jmp SendSelection
 IsDir
 	jsr change_dir_message		; it's a directory
+	inc DirLevel			; keep track of where we are in the tree
 SendSelection
 	ldy CurrEntry
 	iny				; FPGA expects 1-20, so bump value
@@ -399,7 +433,7 @@ Done
 	lda #$FF	; ack
 	jsr send_fpga_cmd
 wait_clear
-	lda ULTIMATE_CART_CMD_BYTE
+	lda ULTIMATE_CART_CMD
 	bne wait_clear
 	rts
 	.endp
@@ -419,31 +453,10 @@ wait_clear
 
 
 
-.proc	output_header
-	lda #0
-	sta cx
-	sta cy
-	ldax #txtHeader
-	jmp PutString
-	.endp
-	
-	
-	
-	
-.proc	output_footer
-	mva #0 cx
-	mva #23 cy
-	ldax #txtFooter
-	jmp PutString
-	.endp
-
-
-
-
 .proc	show_error
 	mva #$31 color2		; set background to red
 	jsr clear_screen
-	jsr output_header
+	jsr DisplayHeader
 	ldax #ErrorMsg
 	jsr ShowMsg
 	ldax #ERROR_MSG_BUFFER
@@ -468,14 +481,6 @@ wait_clear
 	
 	
 	
-.proc	next_page_message
-	jsr OpenWindow
-	ldax #NextPageMsg
-	jmp ShowMsg
-	.endp
-	
-	
-	
 .proc	ShowMsg
 	jsr PutString
 	mva #0 RevFlag
@@ -484,13 +489,30 @@ wait_clear
 
 
 
+.proc	DisplayHeader
+	lda #0
+	sta cx
+	sta cy
+	ldax #txtHeader
+	jmp PutString
+	.endp
+
+
+.proc	DisplayFooter
+	mva #23 cy
+	mva #0 cx
+	ldax #txtFooter
+	jmp PutString
+	.endp
+
+
 .proc	Cleanup				; clean up prior to launching cart
 	sei
-	mva #$0 NMIEN			; disable iterrupts
+	mva #$0 NMIEN			; disable interrupts
 	mwa OSVBI VVBLKI		; restore OS VBL
-;	lda #0
-;	sta SDMCTL
-;	sta DMACTL			; make sure screen blanks out immediately
+	lda #0
+	sta SDMCTL
+	sta DMACTL			; make sure screen blanks out immediately
 	mva #$40 NMIEN			; enable VBI, disable DLI
 	cli
 	rts
@@ -540,7 +562,7 @@ Done
 	inc cy
 	bne Done
 Finished
-	rts
+	jmp DisplayScrollIndicators
 	.endp
 	
 	
@@ -598,7 +620,7 @@ Done
 	sta ScrPtr
 	lda LineTable.Hi,y
 	sta ScrPtr+1
-	ldy #39
+	ldy #38
 @
 	lda (ScrPtr),y
 	eor #$80
@@ -619,6 +641,19 @@ Done
 	sta PrevEntry
 	rts
 	.endp
+	
+//
+//	Cursor home
+//
+
+.proc EndSelection
+	mwa #DIR_BUFFER+[19*32] CurrEntryPtr
+	lda #19
+	sta CurrEntry
+	sta PrevEntry
+	rts
+	.endp	
+
 
 //
 //	Get dir_ptr + 1 in a,x
@@ -717,7 +752,7 @@ Done
 txtHeader
 	.byte '  Ultimate Cartridge Menu',0
 txtFooter
-	.byte 'U=Up dir, SPACE=Next Page, X=Disable',0
+	.byte 28+128,29+128,'-Move  ',30+128,'-Up Dir  ','R'+128,'e'+128,'t'+128,'-Select  ','X'+128,'-Boot',0
 	
 StartCartMsg
 	.byte 'Starting Cartridge...',0
@@ -725,6 +760,9 @@ ChangeDirMsg
 	.byte 'Changing Directory...',0
 NextPageMsg
 	.byte 'Next page...',0
+PrevPageMsg
+	.byte 'Previous page...',0
+txtEllipsis	equ *-4
 ErrorMsg
 	.byte 'Error:',0
 	
