@@ -24,6 +24,9 @@ colcrs		equ $55			; word 0..39
 
 sm_ptr		equ $58			; screen memory
 
+
+FPGA_CTRL	equ $D510
+
 ; Atari -> FPGA commands (Sent as D5xx access)
 ; 1-20 select item n
 ; 64 disable cart

@@ -430,7 +430,7 @@ Done
 
 .proc	send_fpga_cmd
 	lsr WaitCmdFlag
-	sta $D500
+	sta FPGA_CTRL
 	rts
 	.endp
 

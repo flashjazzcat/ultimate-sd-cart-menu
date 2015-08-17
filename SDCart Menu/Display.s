@@ -29,9 +29,9 @@
 	
 	
 .proc	set_colours
-	mva #$80 color2		; background
-	mva #$0E color1		; foreground (luma)
-	mva #$80 color4		; border
+	mva #$26 color2		; background
+	mva #$0 color1		; foreground (luma)
+	mva #$26 color4		; border
 	rts
 	.endp
 	
