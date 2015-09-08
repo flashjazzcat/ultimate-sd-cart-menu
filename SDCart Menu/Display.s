@@ -14,6 +14,7 @@
 	mva #>FontData CHBAS
 	mwa #DisplayList SDLSTL
 	mwa #DLI VDSLST
+	mva #0 DLICount
 	mwa VVBLKI OSVBI
 	mwa #VBI VVBLKI
 	mva #$C0 NMIEN
@@ -23,33 +24,116 @@
 	sta ColourTable,x
 	dex
 	bpl @-
+	mva #10 ColourTable+20
 	cli
 	rts	
 	.endp
 	
 	
 .proc	set_colours
-	mva #$26 color2		; background
-	mva #$0 color1		; foreground (luma)
-	mva #$26 color4		; border
+	mva #148 color2		; background
+	mva #10 color1		; foreground (luma)
+	mva #148 color4		; border
 	rts
 	.endp
 	
 	
 	
 .proc	DLI
+DLI0
+	pha
+	lda #158
+	sta wsync
+	sta ColBak
+	lda #148
+	sta wsync
+	sta ColBak
+	lda #218
+	sta wsync
+	sta ColBak
+;	sta wsync
+	lda #148
+	sta wsync
+	sta ColBak
+	jmp Exit
+DLI1
+	pha
+	lda #218
+	sta wsync
+	sta ColBak
+;	sta wsync
+	lda #148
+	sta wsync
+	sta ColBak
+	lda #158
+	sta wsync
+	sta ColBak
+	lda #148
+	sta wsync
+	sta ColBak
+	jmp Exit
+
+
+	
+DLI2
+DLI3
+DLI4
+DLI5
+DLI6
+DLI7
+DLI8
+DLI9
+DLI10
+DLI11
+DLI12
+DLI13
+DLI14
+DLI15
+DLI16
+DLI17
+DLI18
+DLI19
+DLI20
+DLI21
+DLI22
+DLI23
+DLI24
+DLI25
 	pha
 	txa
 	pha
 	ldx DLICount
-	lda ColourTable,x
+	lda ColourTable-2,x
 	sta wsync
 	sta ColPf1
+	jmp Exit2
+	
+Exit
+	txa
+	pha
+Exit2
 	inc DLICount
+	ldx DLICount
+	lda StateTableLo,x
+	sta VDSLST
+	lda StateTableHi,x
+	sta VDSLST+1
+	
 	pla
 	tax
 	pla
 	rti
+	
+StateTableLo
+	.byte <DLI0, <DLI1, <DLI2, <DLI3, <DLI4, <DLI5
+	.byte <DLI6, <DLI7
+	.byte <DLI8, <DLI9
+	.byte <DLI10, <DLI11, <DLI12, <DLI13, <DLI14, <DLI15, <DLI16, <DLI17, <DLI18, <DLI19, <DLI20, <DLI21, <DLI22, <DLI23, <DLI24, <DLI25
+StateTableHi
+	.byte >DLI0, >DLI1, >DLI2, >DLI3, >DLI4, >DLI5
+	.byte >DLI6, >DLI7
+	.byte >DLI8, >DLI9
+	.byte >DLI10, >DLI11, >DLI12, >DLI13, >DLI14, >DLI15, >DLI16, >DLI17, >DLI18, >DLI19, >DLI20, >DLI21, >DLI22, >DLI23, >DLI24, >DLI25
 	.endp
 
 
@@ -60,6 +144,7 @@
 	.local VBI
 	sta NMIRES
 	mva #$0 DLICount	; sync DLIs
+	mwa #DLI.DLI0 VDSLST
 	lda Timer		; maintain joystick debounce timer
 	beq @+
 	dec Timer
@@ -279,7 +364,7 @@ Done
 	seq
 	ldy #28
 	mva #39 cx
-	mva #2 cy
+	mva #1 cy
 	tya
 	jsr PutChar
 	pla
@@ -288,7 +373,7 @@ Done
 	seq
 	ldy #29
 	mva #39 cx
-	mva #21 cy
+	mva #20 cy
 	tya
 	jmp PutChar
 	.endp
@@ -408,10 +493,10 @@ VDelayVal
 //
 
 DisplayList
-	.rept 2
 	.byte DL.Blank8
-	.endr
-	
+	.byte DL.Blank5+DL.NMI
+	.byte DL.Blank5
+		
 	.byte DL.ModeF+DL.LMS
 	.word Logo
 	
@@ -419,12 +504,20 @@ DisplayList
 	.byte DL.ModeF
 	.endr
 	
-	.byte DL.Mode2+DL.LMS+DL.NMI
+	.byte DL.Mode2+DL.LMS
 	.word FrameBuffer
+
+	.byte DL.Blank1+DL.NMI
 	
-	.rept 23
+	.byte DL.Blank6+DL.NMI
+
+	.rept 20
 	.byte DL.Mode2+DL.NMI
 	.endr
+	
+	.byte DL.Blank4
+	
+	.byte DL.Mode2
 	
 	.byte DL.VBL
 	.word DisplayList

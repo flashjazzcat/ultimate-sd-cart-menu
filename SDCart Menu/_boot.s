@@ -1,5 +1,5 @@
 /* Ultimate SD Cartridge - Atari 400/800/XL/XE Multi-Cartridge
-   Copyright (C) 2015 Robin Edwards
+   Copyright (C) 2015 Robin Edwards and Jonathan Halliday
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License
@@ -49,7 +49,9 @@ main	.proc
 	sta RevFlag
 	sta WaitCmdFlag
 	sta DirLevel			; start in root directory
-	mva #$FF CH			; set last key pressed to none
+	lda #$FF
+	sta CH				; set last key pressed to none
+	sta BootFlag
 	jsr copy_wait_for_reboot
 	mva #3 BOOT			; patch reset - from mapping the atari (revised) appendix 11
 	mwa #reset_routine CASINI
@@ -62,7 +64,15 @@ main	.proc
 main_loop
 	jsr HighlightCurrentEntry
 PollLoop
+	bit BootFlag
+	bpl @+
+	jsr CheckSoftBoot
+	jmp GotCmd
+@
+	lsr BootFlag
 	lda ULTIMATE_CART_CMD
+GotCmd
+	lsr BootFlag
 	cmp #CMD.Refresh
 	beq display_cmd
 	cmp #CMD.Error
@@ -423,6 +433,30 @@ Done
 	
 	
 
+//
+// poll command register for a second to see if cart was run by soft reboot
+//
+
+.proc CheckSoftBoot
+	ldy #100
+Loop
+	jsr WaitForSync
+	lda ULTIMATE_CART_CMD
+	cmp #Cmd.Refresh
+	beq @+
+	cmp #Cmd.Error
+	beq @+
+	cmp #Cmd.Reboot
+	dey
+	bne Loop
+	lda #CCTL.Reset
+	jsr Send_FPGA_Cmd
+	lsr BootFlag
+	bcc CheckSoftBoot
+@
+	rts
+	.endp
+	
 
 //
 // Send a byte to the FPGA (byte in A)
@@ -505,7 +539,7 @@ wait_clear
 
 
 .proc	DisplayFooter
-	mva #23 cy
+	mva #21 cy
 	mva #0 cx
 	ldax #txtFooter
 	jmp PutString
@@ -536,7 +570,7 @@ wait_clear
 	sta cx
 	sta Entry
 	sta Entries
-	mva #2 cy
+	mva #1 cy
 Loop
 	ldy #0
 	lda (dir_ptr),y
@@ -557,11 +591,11 @@ Next
 	inc tmp2		; bump shortcut key
 	inc cy
 	lda cy
-	cmp #22
+	cmp #21
 	bcc Loop
 Done
 	lda cy
-	cmp #22			; did we fill the screen?
+	cmp #21			; did we fill the screen?
 	bcs Finished
 	mva #0 cx
 	jsr PadLine
@@ -635,7 +669,7 @@ Done
 .proc	ReverseItem
 	stx tmp1
 	clc
-	adc #2
+	adc #1
 	tay
 	lda LineTable.Lo,y
 	clc
@@ -787,7 +821,7 @@ Done
 txtHeader
 	.byte '  Ultimate Cartridge Menu',0
 txtFooter
-	.byte 28+128,29+128,'-Move  ',30+128,'-Up Dir  ','R'+128,'e'+128,'t'+128,'-Select  ','X'+128,'-Boot',0
+	.byte 32,32,28+128,29+128,'-Move  ',30+128,'-Up Dir  ','R'+128,'e'+128,'t'+128,'-Select  ','X'+128,'-Boot',0
 	
 StartCartMsg
 	.byte 'Starting Cartridge...',0

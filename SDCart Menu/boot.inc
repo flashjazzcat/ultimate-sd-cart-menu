@@ -118,6 +118,7 @@ MotionFlag	.ds 1
 Timer		.ds 1
 WaitCmdFlag	.ds 1
 DirLevel	.ds 1		; keeps track of where we are in the directory tree
+BootFlag	.ds 1
 
 //
 // Display List constants
