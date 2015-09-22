@@ -97,8 +97,9 @@ display_error
 	jmp main_loop
 	
 reboot_cmd
-	jsr send_fpga_ack_wait_clear
 	jsr CleanUp
+	jsr send_fpga_ack_wait_clear
+;	jsr CleanUp
 	sei				; prevent GINTLK check in deferred VBI
 	jsr $100
 
@@ -781,11 +782,12 @@ Done
 	
 .proc RebootCode
 	ldx #1
+	lda VCount
 @
-	lda VCount
-	rne
-	lda VCount
+	cmp VCount
 	req
+	cmp VCount
+	rne
 	dex
 	bpl @-
 	jmp $E477
