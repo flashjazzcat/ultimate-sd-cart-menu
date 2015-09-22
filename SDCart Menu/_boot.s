@@ -49,6 +49,7 @@ main	.proc
 	sta RevFlag
 	sta WaitCmdFlag
 	sta DirLevel			; start in root directory
+	sta MenuUpFlag
 	lda #$FF
 	sta CH				; set last key pressed to none
 	sta BootFlag
@@ -85,6 +86,8 @@ GotCmd
 	
 display_cmd
 ;	jsr HomeSelection
+	sec
+	ror MenuUpFlag
 	jsr RefreshList
 	jsr send_fpga_ack_wait_clear	; wait for the FPGA to clear the cmd byte
 	jmp main_loop
@@ -104,6 +107,8 @@ reboot_cmd
 	jsr $100
 
 read_keyboard
+	bit MenuUpFlag			; make sure we don't accept input until menu is displayed
+	bpl Main_Loop
 	jsr CheckJoyStick
 	cmp #$FF
 	bne @+
@@ -170,6 +175,7 @@ KeyList
 .proc UpDir				; Back up one level in directory tree
 	lda DirLevel
 	beq Done
+	lsr MenuUpFlag
 	jsr change_dir_message
 	jsr HomeSelection
 	lda #CCTL.UP_DIR
@@ -186,6 +192,7 @@ Done
 	lda ULTIMATE_CART_LIST_FLAG
 	and #ListFlags.FilesBefore	; see if there are any prior entries
 	beq Done
+	lsr MenuUpFlag
 	jsr EndSelection
 	lda #CCTL.PREV_PAGE
 	jsr send_fpga_cmd
@@ -201,6 +208,7 @@ Done
 	lda ULTIMATE_CART_LIST_FLAG
 	and #ListFlags.FilesAfter	; see if there are any more entries
 	beq Done
+	lsr MenuUpFlag
 	jsr HomeSelection
 	lda #CCTL.NEXT_PAGE
 	jsr send_fpga_cmd
@@ -269,7 +277,6 @@ IsLastEntry				; if we're at the final entry, load next page of list
 	
 .proc CursorLeft
 	jmp UpDir
-	rts
 	.endp
 	
 	
@@ -322,7 +329,6 @@ Abort
 	.endp
 
 	.endp	; proc start
-
 
 
 
@@ -495,14 +501,17 @@ wait_clear
 
 
 .proc	show_error
-	mva #$31 color2		; set background to red
-	jsr clear_screen
-	jsr DisplayHeader
+	jsr OpenWindow
 	ldax #ErrorMsg
 	jsr ShowMsg
-	ldax #ERROR_MSG_BUFFER
-	jsr PutString
-	jmp WaitKey
+	ldx #70
+@
+	jsr WaitForSync
+	dex
+	bpl @-
+	rts
+
+;	jmp WaitKey
 	.endp
 	
 
@@ -545,9 +554,23 @@ wait_clear
 	ldax #txtFooter
 	jmp PutString
 	.endp
+	
+	
+.proc	ClearFooter
+	mva #21 cy
+	mva #0 cx
+	lda #32
+@
+	jsr PutChar
+	lda cx
+	cmp #40
+	bcc @-
+	rts
+	.endp
 
 
 .proc	Cleanup				; clean up prior to launching cart
+	jsr WaitForSync
 	sei
 	mva #$0 NMIEN			; disable interrupts
 	mwa OSVBI VVBLKI		; restore OS VBL
@@ -559,6 +582,9 @@ wait_clear
 	rts
 	.endp
 
+
+
+	
 	
 //
 //	Display page of FAT filenames
@@ -834,9 +860,7 @@ NextPageMsg
 PrevPageMsg
 	.byte 'Previous page...',0
 txtEllipsis	equ *-4
-ErrorMsg
-	.byte 'Error:',0
-	
+
 	.align $100
 
 	
@@ -858,8 +882,12 @@ scancodes
 	.endr
 	.endl
 	
-	org ERROR_MSG_BUFFER
-	.byte 'Test error message',0
+	org ERROR_MSG_BUFFER-7
+	
+ErrorMsg
+	.byte 'Error: '
+
+	.ds 40
 
 	.align $0200	
 	

@@ -119,6 +119,9 @@ Timer		.ds 1
 WaitCmdFlag	.ds 1
 DirLevel	.ds 1		; keeps track of where we are in the directory tree
 BootFlag	.ds 1
+MenuUpFlag	.ds 1
+
+
 
 //
 // Display List constants
@@ -146,8 +149,8 @@ BootFlag	.ds 1
 
 .enum	Key
 	Esc	= 27
-	X	= 24
-	U	= 21
+	X	= 88
+	U	= 85
 	Up	= 45
 	Down	= 61
 	Left	= 43
@@ -158,6 +161,7 @@ BootFlag	.ds 1
 	CtrlLt	= 30
 	CtrlRt	= 31
 	Return	= 155
+	Delete	= 126
 	.ende
 
 ColourTable	equ $1F80
