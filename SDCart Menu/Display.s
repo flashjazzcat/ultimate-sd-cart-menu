@@ -43,32 +43,48 @@
 DLI0
 	pha
 	lda #158
+	eor colrsh
+	and drkmsk
 	sta wsync
 	sta ColBak
 	lda #148
+	eor colrsh
+	and drkmsk
 	sta wsync
 	sta ColBak
 	lda #218
+	eor colrsh
+	and drkmsk
 	sta wsync
 	sta ColBak
 ;	sta wsync
 	lda #148
+	eor colrsh
+	and drkmsk
 	sta wsync
 	sta ColBak
 	jmp Exit
 DLI1
 	pha
 	lda #218
+	eor colrsh
+	and drkmsk
 	sta wsync
 	sta ColBak
 ;	sta wsync
 	lda #148
+	eor colrsh
+	and drkmsk
 	sta wsync
 	sta ColBak
 	lda #158
+	eor colrsh
+	and drkmsk
 	sta wsync
 	sta ColBak
 	lda #148
+	eor colrsh
+	and drkmsk
 	sta wsync
 	sta ColBak
 	jmp Exit
@@ -105,6 +121,8 @@ DLI25
 	ldx DLICount
 	lda ColourTable-2,x
 	sta wsync
+	eor colrsh
+	and drkmsk
 	sta ColPf1
 	jmp Exit2
 	
@@ -303,20 +321,32 @@ Done
 //
 
 	.proc PutFilename
-	stax text_out_ptr
+	adw dir_ptr #1 text_out_ptr
+	mva #31 tmp4
+	ldy #0
+	lda (dir_ptr),y
+	cmp #EntryType.Dir
+	bne NotDir
+	lda #':'
+	jsr PutChar
+	dec tmp4
+NotDir
 	ldy #0			; figure out length of string
 	sty tmp3		; ellipsis flag
 @
 	lda (text_out_ptr),y
 	beq FoundEOS
 	iny
-	cpy #31
+	cpy tmp4
 	bcc @-
 	ror tmp3		; say the name is truncated
-	ldx #28
+	lda tmp4
+	sec
+	sbc #3
+	tax
 	bne ShortString
 FoundEOS			; if we end up here, filename fits on the screen
-	ldx #31
+	ldx tmp4
 ShortString
 	ldy #0
 Loop

@@ -602,16 +602,7 @@ Loop
 	ldy #0
 	lda (dir_ptr),y
 	beq Done
-	cmp #EntryType.File
-	beq OutName
-	cmp #EntryType.Dir
-	beq OutDir
-OutName
 	jsr DisplayEntry
-	jmp Next
-OutDir
-	jsr DisplayEntry
-Next
 	adw dir_ptr #$20	; bump filename pointer
 	inc Entry		; bump entry number
 	inc Entries		; bump total entries
@@ -654,7 +645,6 @@ Finished
 	jsr PutChar
 	ldx #128
 	stx RevFlag
-	jsr GetNamePtr
 	jsr PutFileName
 	jsr PadFileName
 	lda #2
@@ -662,7 +652,6 @@ Finished
 @
 	lda #$20
 	jsr PutChar
-	jsr GetNamePtr
 	jsr PutFileName
 	jsr PadFileName
 	lda #$20
@@ -751,19 +740,6 @@ Done
 	.endp	
 
 
-//
-//	Get dir_ptr + 1 in a,x
-//
-	
-.proc GetNamePtr
-	ldax dir_ptr
-	clc
-	adc #1
-	scc
-	inx
-	rts
-	.endp
-	
 	
 //
 //	Wait for sync

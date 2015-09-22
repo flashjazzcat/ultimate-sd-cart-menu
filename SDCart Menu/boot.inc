@@ -15,6 +15,9 @@ CH		equ $2FC		; Internal hardware value for the last key pressed
 BOOT		equ $09
 CASINI		equ $02
 
+drkmsk		equ $4E
+colrsh		equ $4F
+
 color1		equ $2c5		; Shadow of colpf1
 color2		equ $2c6		; Shadow of colpf2
 color4		equ $2c8		; Shadow of colbk
@@ -105,6 +108,7 @@ tmp		.ds 1
 tmp1		.ds 1
 tmp2		.ds 1
 tmp3		.ds 1
+tmp4		.ds 1
 DLICount	.ds 1
 PrevEntry	.ds 1		; previously highlighted item
 CurrEntry	.ds 1		; selected item (0-19)
