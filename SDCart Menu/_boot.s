@@ -99,7 +99,7 @@ display_error
 reboot_cmd
 	jsr send_fpga_ack_wait_clear
 	jsr CleanUp
-;	sei				; prevent GINTLK check in deferred VBI
+	sei				; prevent GINTLK check in deferred VBI
 	jsr $100
 
 read_keyboard

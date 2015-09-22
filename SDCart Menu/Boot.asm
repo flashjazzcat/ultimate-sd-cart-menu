@@ -1,20 +1,16 @@
 /* Ultimate SD Cartridge - Atari 400/800/XL/XE Multi-Cartridge
    Copyright (C) 2015 Robin Edwards
-
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License
    as published by the Free Software Foundation; either version 2
    of the License, or (at your option) any later version.
-
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
    Boot.asm 
    --------
    This file builds with WUDSN/MADS into an 8K Atari ROM.
@@ -47,7 +43,7 @@ colcrs = $55				; word 0..39
 
 sm_ptr = $58				; screen memory
 
-; Atari -> FPGA commands (Sent as D5xx access)
+; Atari -> FPGA commands (Sent as D510 access)
 ; 1-20 select item n
 ; 64 disable cart
 ; 127 prev page
@@ -237,7 +233,7 @@ end_key
 ; ************************ SUBROUTINES ****************************
 ; send a byte to the FPGA (byte in Accumulator)
 .proc	send_fpga_cmd
-	sta $D500
+	sta $D510
 	rts
 	.endp
 
@@ -629,4 +625,3 @@ scancodes .array [256] = $ff
 	.byte 0				;CART
 	.byte CARTFG_START_CART		;CARTFG
 	.word init			;CARTAD
-
