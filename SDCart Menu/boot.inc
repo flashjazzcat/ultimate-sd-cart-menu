@@ -120,8 +120,8 @@ TriggerState	.ds 1
 StickState	.ds 1
 MotionFlag	.ds 1
 Timer		.ds 1
-WaitCmdFlag	.ds 1
 DirLevel	.ds 1		; keeps track of where we are in the directory tree
+WaitCmdFlag	.ds 1
 BootFlag	.ds 1
 MenuUpFlag	.ds 1
 
@@ -166,6 +166,8 @@ MenuUpFlag	.ds 1
 	CtrlRt	= 31
 	Return	= 155
 	Delete	= 126
+	CtrlShiftUp	= 156
+	CtrlShiftDown	= 157
 	.ende
 
 ColourTable	equ $1F80

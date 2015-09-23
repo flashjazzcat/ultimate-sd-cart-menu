@@ -152,7 +152,7 @@ KeyFound
 	pha
 	rts
 KeyList
-	.byte 10
+	.byte 12
 	Target LaunchItem,Key.Return
 	Target CursorUp,Key.Up
 	Target CursorDown,Key.Down
@@ -163,6 +163,8 @@ KeyList
 	Target NextPage,Key.Space
 	Target NextPage,Key.CtrlDn
 	Target PageUp,Key.CtrlUp
+	Target ListTop,Key.CtrlShiftUp
+	Target ListEnd,Key.CtrlShiftDown
 	.endp
 	
 
@@ -170,6 +172,7 @@ KeyList
 	lda #CCTL.DISABLE
 	jmp send_fpga_cmd
 	.endp
+	
 	
 	
 .proc UpDir				; Back up one level in directory tree
@@ -188,16 +191,59 @@ Done
 	.endp
 	
 	
+.proc ListTop
+	jsr ListTopMessage
+Loop
+	jsr PrevPage
+	beq Done
+@
+	lda ULTIMATE_CART_CMD
+	cmp #Cmd.Refresh
+	bne @-
+	beq Loop
+Done
+	jsr CountEntries
+@
+	jsr CursorUp
+	bne @-
+	mva CurrEntry PrevEntry
+	lsr WaitCmdFlag
+	mwa #DIR_BUFFER CurrEntryPtr
+	jmp RefreshList
+	.endp
+	
+	
+.proc ListEnd
+	jsr ListEndMessage
+Loop
+	jsr NextPage
+	beq Done
+@
+	lda ULTIMATE_CART_CMD
+	cmp #Cmd.Refresh
+	bne @-
+	beq Loop
+Done
+	jsr CountEntries
+@
+	jsr CursorDown
+	bne @-
+	mva CurrEntry PrevEntry
+	lsr WaitCmdFlag
+	jmp RefreshList
+	.endp
+	
+	
 .proc PrevPage
 	lda ULTIMATE_CART_LIST_FLAG
 	and #ListFlags.FilesBefore	; see if there are any prior entries
-	beq Done
+	beq Done			; returns Z=1 if no prior entries
 	lsr MenuUpFlag
 	jsr EndSelection
 	lda #CCTL.PREV_PAGE
 	jsr send_fpga_cmd
 	sec
-	ror WaitCmdFlag
+	ror WaitCmdFlag			; this sets Z=0
 Done
 	rts
 	.endp
@@ -207,13 +253,13 @@ Done
 .proc NextPage				; Display next page of entries
 	lda ULTIMATE_CART_LIST_FLAG
 	and #ListFlags.FilesAfter	; see if there are any more entries
-	beq Done
+	beq Done			; returns Z=1 if no prior entries
 	lsr MenuUpFlag
 	jsr HomeSelection
 	lda #CCTL.NEXT_PAGE
 	jsr send_fpga_cmd
 	sec
-	ror WaitCmdFlag
+	ror WaitCmdFlag			; this sets Z=0
 Done
 	rts
 	.endp
@@ -288,6 +334,7 @@ IsLastEntry				; if we're at the final entry, load next page of list
 .proc PrevItem				; select previous item in list
 	dec CurrEntry
 	sbw CurrEntryPtr #$20
+	lda #1 				; say OK
 	rts
 	.endp
 	
@@ -295,6 +342,7 @@ IsLastEntry				; if we're at the final entry, load next page of list
 .proc NextItem				; select next item in list
 	inc CurrEntry
 	adw CurrEntryPtr #$20
+	lda #1				; say OK
 	rts
 	.endp
 	
@@ -516,22 +564,40 @@ wait_clear
 	
 
 
+.proc	ListTopMessage
+	ldax #ListTopMsg
+	bne ShowMsg
+	.endp
+	
+	
+.proc	ListEndMessage
+	ldax #ListEndMsg
+	bne ShowMsg
+	.endp
+	
+	
+
 .proc	starting_cartridge_message
-	jsr OpenWindow
 	ldax #StartCartMsg
-	jmp ShowMsg
+	bne ShowMsg
 	.endp
 	
 
 .proc	change_dir_message
-	jsr OpenWindow
 	ldax #ChangeDirMsg
-	jmp ShowMsg
+	bne ShowMsg
 	.endp
 	
 	
 	
 .proc	ShowMsg
+	pha
+	txa
+	pha
+	jsr OpenWindow
+	pla
+	tax
+	pla
 	jsr PutString
 	mva #0 RevFlag
 	rts
@@ -584,6 +650,30 @@ wait_clear
 
 
 
+//
+//	Count entries on current page
+//
+
+.proc CountEntries
+	mwa #DIR_BUFFER dir_ptr
+	lda #0
+	sta CurrEntry
+	sta Entries
+	tay
+Loop
+	lda (dir_ptr),y
+	beq Done
+	adw dir_ptr #$20	; bump filename pointer
+	inc Entries		; bump total entries
+	lda Entries
+	cmp #20
+	bcc Loop
+Done
+	mwa #DIR_BUFFER dir_ptr
+	rts
+	.endp
+	
+	
 	
 	
 //
@@ -823,7 +913,7 @@ Done
 ; ************************ DATA ****************************
 	
 txtHeader
-	.byte '  Ultimate Cartridge Menu',0
+	.byte '  Ultimate SD Cartridge Menu',0
 txtFooter
 	.byte 32,32,28+128,29+128,'-Move  ',30+128,'-Up Dir  ','R'+128,'e'+128,'t'+128,'-Select  ','X'+128,'-Boot',0
 	
@@ -835,6 +925,11 @@ NextPageMsg
 	.byte 'Next page...',0
 PrevPageMsg
 	.byte 'Previous page...',0
+ListTopMsg
+	.byte 'Start of list...',0
+ListEndMsg
+	.byte 'End of list...',0
+
 txtEllipsis	equ *-4
 
 	.align $100

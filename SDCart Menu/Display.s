@@ -327,7 +327,7 @@ Done
 	lda (dir_ptr),y
 	cmp #EntryType.Dir
 	bne NotDir
-	lda #':'
+	lda #127
 	jsr PutChar
 	dec tmp4
 NotDir
