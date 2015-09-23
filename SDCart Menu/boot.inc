@@ -120,10 +120,11 @@ TriggerState	.ds 1
 StickState	.ds 1
 MotionFlag	.ds 1
 Timer		.ds 1
-DirLevel	.ds 1		; keeps track of where we are in the directory tree
-WaitCmdFlag	.ds 1
 BootFlag	.ds 1
 MenuUpFlag	.ds 1
+DirLevel	.ds 1		; keeps track of where we are in the directory tree
+WaitCmdFlag	.ds 1
+
 
 
 
