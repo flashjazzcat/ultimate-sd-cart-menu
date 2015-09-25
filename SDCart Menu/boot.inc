@@ -155,6 +155,7 @@ WaitCmdFlag	.ds 1
 .enum	Key
 	Esc	= 27
 	X	= 88
+	Z	= 90
 	U	= 85
 	Up	= 45
 	Down	= 61

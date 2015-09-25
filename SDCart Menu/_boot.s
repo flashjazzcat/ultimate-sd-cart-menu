@@ -152,15 +152,16 @@ KeyFound
 	pha
 	rts
 KeyList
-	.byte 10
+	.byte 13
 	Target LaunchItem,Key.Return
 	Target CursorUp,Key.Up
 	Target CursorDown,Key.Down
 	Target CursorLeft,Key.Left
 	Target CursorRight,Key.Right
 	Target Reboot,Key.X
-;	Target UpDir,Key.U
-;	Target NextPage,Key.Space
+	Target UpDir,Key.U
+	Target NextPage,Key.Space
+	Target PageUp,Key.Z
 	Target NextPage,Key.CtrlDn
 	Target PageUp,Key.CtrlUp
 	Target ListTop,Key.CtrlShiftUp
