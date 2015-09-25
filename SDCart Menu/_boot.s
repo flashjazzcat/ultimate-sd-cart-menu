@@ -59,7 +59,7 @@ main	.proc
 	jsr InitJoystick
 	jsr SetUpDisplay
 	jsr clear_screen
-	jsr DisplayHeader
+;	jsr DisplayHeader
 	jsr DisplayFooter
 	jsr HomeSelection
 main_loop
@@ -152,15 +152,15 @@ KeyFound
 	pha
 	rts
 KeyList
-	.byte 12
+	.byte 10
 	Target LaunchItem,Key.Return
 	Target CursorUp,Key.Up
 	Target CursorDown,Key.Down
 	Target CursorLeft,Key.Left
 	Target CursorRight,Key.Right
 	Target Reboot,Key.X
-	Target UpDir,Key.U
-	Target NextPage,Key.Space
+;	Target UpDir,Key.U
+;	Target NextPage,Key.Space
 	Target NextPage,Key.CtrlDn
 	Target PageUp,Key.CtrlUp
 	Target ListTop,Key.CtrlShiftUp
@@ -355,6 +355,7 @@ IsLastEntry				; if we're at the final entry, load next page of list
 	ldy #0
 	lda (CurrEntryPtr),y		; find out what the item is
 	beq Abort
+	lsr MenuUpFlag
 	cmp #EntryType.Dir
 	beq IsDir
 	jsr starting_cartridge_message	; not Nul and not Dir, so must be a file
@@ -468,7 +469,7 @@ StickChange			; stick direction changed
 	lda StickTable,y
 	rts
 StickTable
-	.byte Key.Return,Key.Return,Key.Return,Key.Return
+	.byte Key.CtrlUp,Key.CtrlDn,Key.CtrlShiftUp,Key.CtrlShiftDown
 	.byte Key.Up,Key.Down,Key.Left,Key.Right
 
 
@@ -605,21 +606,22 @@ wait_clear
 
 
 
-.proc	DisplayHeader
-	lda #0
-	sta cx
-	sta cy
-	ldax #txtHeader
-	jmp PutString
-	.endp
+;.proc	DisplayHeader
+;	lda #0
+;	sta cx
+;	sta cy
+;	ldax #txtHeader
+;	jmp PutString
+;	.endp
 
 
 .proc	DisplayFooter
-	mva #21 cy
+	mva #20 cy
 	mva #0 cx
 	ldax #txtFooter
 	jmp PutString
 	.endp
+	
 	
 	
 .proc	ClearFooter
@@ -687,7 +689,7 @@ Done
 	sta cx
 	sta Entry
 	sta Entries
-	mva #1 cy
+	mva #0 cy
 Loop
 	ldy #0
 	lda (dir_ptr),y
@@ -699,11 +701,11 @@ Loop
 	inc tmp2		; bump shortcut key
 	inc cy
 	lda cy
-	cmp #21
+	cmp #20
 	bcc Loop
 Done
 	lda cy
-	cmp #21			; did we fill the screen?
+	cmp #20			; did we fill the screen?
 	bcs Finished
 	mva #0 cx
 	jsr PadLine
@@ -774,8 +776,8 @@ Done
 
 .proc	ReverseItem
 	stx tmp1
-	clc
-	adc #1
+;	clc
+;	adc #1
 	tay
 	lda LineTable.Lo,y
 	clc
@@ -912,10 +914,11 @@ Done
 	
 ; ************************ DATA ****************************
 	
-txtHeader
-	.byte '  Ultimate SD Cartridge Menu',0
+;txtHeader
+;	.byte '  Ultimate SD Cartridge Menu',0
 txtFooter
-	.byte 32,32,28+128,29+128,'-Move  ',30+128,'-Up Dir  ','R'+128,'e'+128,'t'+128,'-Select  ','X'+128,'-Boot',0
+	.byte 32,32,28+128,29+128,'-Move ',30+128,'-Up Dir ','Return'*,'-Select ','X'+128,'-Boot '
+	.byte 32,32,32,'Ct'*,'+',28+128,29+128,'-Page Up/Dn ','Sh'*,'+','Ct'*,'+',28+128,29+128,'-Start/End',0
 	
 StartCartMsg
 	.byte 'Starting Cartridge...',0

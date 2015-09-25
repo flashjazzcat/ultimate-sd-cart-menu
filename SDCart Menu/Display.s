@@ -47,7 +47,7 @@ DLI0
 	and drkmsk
 	sta wsync
 	sta ColBak
-	lda #148
+	lda #130
 	eor colrsh
 	and drkmsk
 	sta wsync
@@ -72,7 +72,7 @@ DLI1
 	sta wsync
 	sta ColBak
 ;	sta wsync
-	lda #148
+	lda #130
 	eor colrsh
 	and drkmsk
 	sta wsync
@@ -87,6 +87,10 @@ DLI1
 	and drkmsk
 	sta wsync
 	sta ColBak
+	lda ColourTable
+	eor colrsh
+	and drkmsk
+	sta ColPf1	
 	jmp Exit
 
 
@@ -119,7 +123,7 @@ DLI25
 	txa
 	pha
 	ldx DLICount
-	lda ColourTable-2,x
+	lda ColourTable,x
 	sta wsync
 	eor colrsh
 	and drkmsk
@@ -322,14 +326,15 @@ Done
 
 	.proc PutFilename
 	adw dir_ptr #1 text_out_ptr
-	mva #31 tmp4
+	ldx #127
 	ldy #0
 	lda (dir_ptr),y
 	cmp #EntryType.Dir
-	bne NotDir
-	lda #127
+	beq @+
+	ldx #32
+@
+	txa
 	jsr PutChar
-	dec tmp4
 NotDir
 	ldy #0			; figure out length of string
 	sty tmp3		; ellipsis flag
@@ -337,16 +342,13 @@ NotDir
 	lda (text_out_ptr),y
 	beq FoundEOS
 	iny
-	cpy tmp4
+	cpy #31
 	bcc @-
 	ror tmp3		; say the name is truncated
-	lda tmp4
-	sec
-	sbc #3
-	tax
+	ldx #28
 	bne ShortString
 FoundEOS			; if we end up here, filename fits on the screen
-	ldx tmp4
+	ldx #31
 ShortString
 	ldy #0
 Loop
@@ -394,7 +396,7 @@ Done
 	seq
 	ldy #28
 	mva #39 cx
-	mva #1 cy
+	mva #0 cy
 	tya
 	jsr PutChar
 	pla
@@ -403,7 +405,7 @@ Done
 	seq
 	ldy #29
 	mva #39 cx
-	mva #20 cy
+	mva #19 cy
 	tya
 	jmp PutChar
 	.endp
@@ -525,7 +527,7 @@ VDelayVal
 DisplayList
 	.byte DL.Blank8
 	.byte DL.Blank5+DL.NMI
-	.byte DL.Blank5
+	.byte DL.Blank4
 		
 	.byte DL.ModeF+DL.LMS
 	.word Logo
@@ -534,19 +536,21 @@ DisplayList
 	.byte DL.ModeF
 	.endr
 	
+	.byte DL.Blank1+DL.NMI
+	
+	.byte DL.Blank5
+	
 	.byte DL.Mode2+DL.LMS
 	.word FrameBuffer
 
-	.byte DL.Blank1+DL.NMI
-	
-	.byte DL.Blank6+DL.NMI
-
-	.rept 20
+	.rept 19
 	.byte DL.Mode2+DL.NMI
 	.endr
 	
-	.byte DL.Blank4
+	.byte DL.Blank2
 	
+	.byte DL.Mode2
+	.byte DL.Blank1
 	.byte DL.Mode2
 	
 	.byte DL.VBL
