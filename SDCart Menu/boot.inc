@@ -124,8 +124,11 @@ BootFlag	.ds 1
 MenuUpFlag	.ds 1
 DirLevel	.ds 1		; keeps track of where we are in the directory tree
 WaitCmdFlag	.ds 1
-
-
+MsgPtr		.ds 2
+TextLineCount	.ds 1
+TempPtr		.ds 2
+WinY		.ds 1
+Height		.ds 1
 
 
 //
@@ -172,6 +175,7 @@ WaitCmdFlag	.ds 1
 	CtrlShiftDown	= 157
 	.ende
 
+TextLineLenTab	equ $1F00
 ColourTable	equ $1F80
 OSVBI		equ $1FF0
 FrameBuffer	equ $2000		; keep this low so it works on a 600XL

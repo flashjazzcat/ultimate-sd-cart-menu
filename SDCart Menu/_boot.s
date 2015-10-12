@@ -592,17 +592,13 @@ wait_clear
 	
 	
 	
-.proc	ShowMsg
-	pha
-	txa
-	pha
+.proc ShowMsg
+	stax MsgPtr
+	jsr SetUpMessageBox
+	adb TextLineCount #2 Height
 	jsr OpenWindow
-	pla
-	tax
-	pla
-	jsr PutString
-	mva #0 RevFlag
-	rts
+	ldax MsgPtr
+	jmp PrintMessageBoxText
 	.endp
 
 

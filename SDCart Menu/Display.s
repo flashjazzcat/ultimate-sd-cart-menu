@@ -18,13 +18,6 @@
 	mwa VVBLKI OSVBI
 	mwa #VBI VVBLKI
 	mva #$C0 NMIEN
-	ldx #MenuLines+2
-	lda #$0E
-@
-	sta ColourTable,x
-	dex
-	bpl @-
-	mva #10 ColourTable+20
 	cli
 	rts	
 	.endp
@@ -32,7 +25,7 @@
 	
 .proc	set_colours
 	mva #148 color2		; background
-	mva #10 color1		; foreground (luma)
+	mva #10  color1		; foreground (luma)
 	mva #148 color4		; border
 	rts
 	.endp
@@ -47,7 +40,7 @@ DLI0
 	and drkmsk
 	sta wsync
 	sta ColBak
-	lda #130
+	lda #146
 	eor colrsh
 	and drkmsk
 	sta wsync
@@ -58,10 +51,11 @@ DLI0
 	sta wsync
 	sta ColBak
 ;	sta wsync
-	lda #148
+	lda #146
 	eor colrsh
 	and drkmsk
 	sta wsync
+	sta Colpf2
 	sta ColBak
 	jmp Exit
 DLI1
@@ -72,7 +66,7 @@ DLI1
 	sta wsync
 	sta ColBak
 ;	sta wsync
-	lda #130
+	lda #146
 	eor colrsh
 	and drkmsk
 	sta wsync
@@ -87,47 +81,27 @@ DLI1
 	and drkmsk
 	sta wsync
 	sta ColBak
-	lda ColourTable
+	sta ColPf2
+	lda #$0E
 	eor colrsh
 	and drkmsk
 	sta ColPf1	
 	jmp Exit
 
-
-	
 DLI2
-DLI3
-DLI4
-DLI5
-DLI6
-DLI7
-DLI8
-DLI9
-DLI10
-DLI11
-DLI12
-DLI13
-DLI14
-DLI15
-DLI16
-DLI17
-DLI18
-DLI19
-DLI20
-DLI21
-DLI22
-DLI23
-DLI24
-DLI25
 	pha
 	txa
 	pha
-	ldx DLICount
-	lda ColourTable,x
+	lda #$0A
 	sta wsync
 	eor colrsh
 	and drkmsk
 	sta ColPf1
+	lda #146
+	eor colrsh
+	and drkmsk
+	sta ColPf2
+	sta ColBak
 	jmp Exit2
 	
 Exit
@@ -147,15 +121,9 @@ Exit2
 	rti
 	
 StateTableLo
-	.byte <DLI0, <DLI1, <DLI2, <DLI3, <DLI4, <DLI5
-	.byte <DLI6, <DLI7
-	.byte <DLI8, <DLI9
-	.byte <DLI10, <DLI11, <DLI12, <DLI13, <DLI14, <DLI15, <DLI16, <DLI17, <DLI18, <DLI19, <DLI20, <DLI21, <DLI22, <DLI23, <DLI24, <DLI25
+	.byte <DLI0, <DLI1, <DLI2
 StateTableHi
-	.byte >DLI0, >DLI1, >DLI2, >DLI3, >DLI4, >DLI5
-	.byte >DLI6, >DLI7
-	.byte >DLI8, >DLI9
-	.byte >DLI10, >DLI11, >DLI12, >DLI13, >DLI14, >DLI15, >DLI16, >DLI17, >DLI18, >DLI19, >DLI20, >DLI21, >DLI22, >DLI23, >DLI24, >DLI25
+	.byte >DLI0, >DLI1, >DLI2
 	.endp
 
 
@@ -165,6 +133,9 @@ StateTableHi
 
 	.local VBI
 	sta NMIRES
+	mva color1 colpf1
+	mva color2 colpf2
+	mva color4 colbak
 	mva #$0 DLICount	; sync DLIs
 	mwa #DLI.DLI0 VDSLST
 	lda Timer		; maintain joystick debounce timer
@@ -202,27 +173,32 @@ Loop
 //
 
 .proc OpenWindow
-	mva #10 cy
+	lda #20
+	sec
+	sbc Height
+	lsr @
+	sta cy
+	sta WinY
+	ldx Height
 Loop
 	ldy cy
 	lda LineTable.Lo,y
 	sta ScrPtr
 	lda LineTable.Hi,y
 	sta ScrPtr+1
-	ldy #6
+	ldy #5
 	lda #$80
 @
 	sta (ScrPtr),y
 	iny
-	cpy #34
+	cpy #36
 	bcc @-
 	inc cy
-	lda cy
-	cmp #14
-	bcc Loop
+	dex
+	bne Loop
 	mva #$80 RevFlag	; set up reverse video printing
-	mva #11 cy
 	mva #8 cx
+	mva WinY cy
 	rts
 	.endp
 
@@ -412,6 +388,94 @@ Done
 
 
 
+
+	
+	.proc SetUpMessageBox
+	mwa MsgPtr TempPtr
+	mva #0 TextLineCount
+NxtLine
+	ldy #0
+Loop
+	lda (TempPtr),y
+	beq Done
+	cmp #155 ; new line?
+	beq GotSpace
+	iny
+	cpy #26
+	bcc Loop
+Wrap ; we reached the maximum line length, so scan back to wrap line
+	dey
+WrapLoop
+	lda (TempPtr),y
+	cmp #32
+	beq GotSpace
+	dey
+	bne WrapLoop
+	ldy #26 ; couldn't wrap,
+	dey
+GotSpace
+	iny ; step past EOL or space
+	tya
+	ldx TextLineCount
+	sta TextLineLenTab,x
+	clc
+	adc TempPtr
+	sta TempPtr
+	scc
+	inc TempPtr+1
+	inc TextLineCount ; bump line count
+	bne NxtLine
+Done
+	tya
+	beq @+ ; don't store extra zero-length line
+	ldx TextLineCount
+	sta TextLineLenTab,x
+	inc TextLineCount
+@
+	rts
+	.endp
+	
+
+
+	.proc PrintMessageBoxText
+	adb WinY #1 cy
+	mva #0 tmp1 ; line index
+LineLoop
+	mva #7 cx
+	ldx tmp1
+	lda TextLineLenTab,x
+	tax
+	ldy #0
+Loop
+	lda (MsgPtr),y
+	beq Done
+	cmp #155
+	beq EOL
+	jsr PutChar
+	iny
+	dex
+	bne Loop
+	beq @+
+EOL
+	iny
+@
+	tya
+	clc
+	adc MsgPtr
+	sta MsgPtr
+	scc
+	inc MsgPtr+1
+	inc tmp1
+	inc cy
+	dec TextLineCount
+	bne LineLoop
+Done
+	mva #0 RevFlag
+	rts
+	.endp
+
+
+
 //
 //	Table of line addresses
 //
@@ -544,8 +608,10 @@ DisplayList
 	.word FrameBuffer
 
 	.rept 19
-	.byte DL.Mode2+DL.NMI
+	.byte DL.Mode2
 	.endr
+	
+	.byte DL.Blank2+DL.NMI
 	
 	.byte DL.Blank2
 	
