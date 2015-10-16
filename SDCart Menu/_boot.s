@@ -914,7 +914,7 @@ Done
 ;txtHeader
 ;	.byte '  Ultimate SD Cartridge Menu',0
 txtFooter
-	.byte 32,32,28+128,29+128,'-Move ',30+128,'-Up Dir ','Return'*,'-Select ','X'+128,'-Boot '
+	.byte 32,28+128,29+128,'-Move ',30+128,'-Up Dir ','Return'*,'-Select ','X'+128,'-Reboot'
 	.byte 32,32,32,'Ct'*,'+',28+128,29+128,'-Page Up/Dn ','Sh'*,'+','Ct'*,'+',28+128,29+128,'-Start/End',0
 	
 StartCartMsg
