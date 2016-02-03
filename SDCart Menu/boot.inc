@@ -137,11 +137,17 @@ ptr3		.ds 2
 FileSize	equ FMSZPG ; .ds 4
 
 
+DOSINI	equ $0C
+MEMLO	equ $2E7
+
 CIOV	equ $E456
 GINTLK	equ	$03FA
 TRIG3	equ $D013
 
 FMSZPG	equ	$43
+
+BStart		equ FMSZPG+4
+
 
 	.struct IOCBlock
 ID		.byte

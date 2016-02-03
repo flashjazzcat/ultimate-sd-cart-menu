@@ -56,6 +56,7 @@ main	.proc
 	sta CH				; set last key pressed to none
 	sta BootFlag
 	jsr copy_wait_for_reboot
+	jsr CopyXEXLoader
 	mva #3 BOOT			; patch reset - from mapping the atari (revised) appendix 11
 	mwa #reset_routine CASINI
 	jsr InitJoystick
@@ -88,7 +89,8 @@ GotCmd
 	jmp Read_keyboard
 	
 LoadXEX				; load XEX
-	jsr CopyXEXLoader
+	jsr CleanUp
+;	jsr CopyXEXLoader
 	jsr send_fpga_ack_wait_clear
 	sei				; prevent GINTLK check in deferred VBI
 	jmp LoadBinaryFile
@@ -129,7 +131,7 @@ read_keyboard
 	bcc @+
 	sbc #'A'			; carry is set
 	cmp Entries			; see if we overshot the end of the list
-	bcs Main_Loop
+	jcs Main_Loop
 	jmp DoShortcut
 @
 	pha
@@ -1042,13 +1044,15 @@ LoaderCode
 	rne
 	dex
 	bpl @-
+
 	jsr SetGintlk
 	lda #$FF
 	sta $2E0
 	sta $2E1
 	jsr BasicOff
-	jsr CloseDisplay
-	jsr OpenXEXFile
+	cli
+	jsr OpenEditor
+	mwa #EndLoaderCode MEMLO
 	ldy #0
 	tya
 @
@@ -1056,6 +1060,7 @@ LoaderCode
 	iny
 	bpl @-
 	jsr ClearRAM
+	jsr OpenXEXFile
 Loop
 	jsr ReadBlock
 	bmi Error
@@ -1105,6 +1110,7 @@ NotInitBlock
 NoSignature
 	mwa HeaderBuf BStart
 	jsr ReadWord
+	bmi Error
 	mwa HeaderBuf BEnd
 	sbw BEnd BStart BLen
 	inw BLen
@@ -1120,14 +1126,18 @@ Error
 	
 	.proc ReadBuffer
 	jsr ReadByte
+	bmi Error
 	ldy #0
 	sta (BStart),y
+;	sta (88),y
+;	inw 88
 	inw BStart
 	dew BLen
 	lda BLen
 	ora BLen+1
 	bne ReadBuffer
 	ldy #1
+Error
 	rts
 	.endp
 	
@@ -1160,15 +1170,30 @@ Error
 	ora FileSize+2
 	ora FileSize+3
 	beq EOF
+	inc FileSize
+	bne @+
+	inc FileSize+1
+	bne @+
+	inc FileSize+2
+	bne @+
+	inc FileSize+3
+@
 	lda $D500
 BufIndex	equ *-2
 	inc BufIndex		; bump address
-	ldy BufIndex
 	bne @+
 	inc Segment			; bump segment if we reached end of buffer
-	ldy Segment
+	ldy #0
+Segment equ *-1
 	sty $D500
 @
+;	ldy vcount
+;	sty colbak
+	pha
+	ldy #0
+	sta (88),y
+	inw 88
+	pla
 	ldy #1
 	rts
 EOF
@@ -1184,42 +1209,33 @@ EOF
 	.proc OpenXEXFile
 	lda #0
 	sta $D500	; get the first chunk of the file, with file length at $d500-$d503
-	sta Segment
-	mda $D500 FileSize	; get the size of the file
-	mva #4 ptr1
+	sta $D501
+	sta ReadByte.Segment
+	ldy #0
+	ldx #3
+	clc
+@
+	lda $D500,y		; get complement of file size
+	eor #$FF
+	adc L1,y
+	sta FileSize,y
+;	sta (88),y
+	iny
+	dex
+	bpl @-
+	mva #4 ReadByte.BufIndex
 	rts
+L1
+	.dword 1
 	.endp
 	
-	
-	.if 0
-
-	.proc BasicOnOff
-	lda Config.BASIC
-	beq BASICOff
-	.endp
-	
-	.proc BASICOn
-	sei
-	jsr WaitForSync2
-	mva #$0 $3F8
-	mva #$A0 $6A
-	lda portb
-	and #$FD
-	sta portb
-	cli
-	rts
-	.endp
-	.endif
 	
 	.proc BASICOff
-	sei
-	jsr WaitForSync2
 	mva #$01 $3f8
 	mva #$C0 $6A
 	lda portb
 	ora #$02
 	sta portb
-	cli
 	rts
 	.endp
 	
@@ -1264,28 +1280,6 @@ Loop
 	.endp
 	
 	
-//
-//	Close Display
-//
-	
-	.proc CloseDisplay
-	jsr WaitForSync2
-	lda #0
-	sta DMACTL
-	sta SDMCTL
-	sei
-	sta nmien
-	mwa OSVBI VVBLKI
-	lda #$22
-	sta SDMCTL
-	mwa #$C0CE vdslst		; ********************** this needs to be saved and reinstated ******************
-	jsr WaitForSync2
-	mva #$40 nmien
-	cli
-	jsr OpenEditor
-	rts
-	.endp
-	
 	
 	.proc OpenEditor
 	ldx #0
@@ -1315,9 +1309,8 @@ EName
 	rts
 	.endp
 	
-Segment		.ds 1	; XEX segment number
 HeaderBuf	.ds 2
-BStart		equ FMSZPG+4 ; .ds 2
+;BStart		equ FMSZPG+4 ; .ds 2
 BEnd		.ds 2
 BLen		.ds 2
 
