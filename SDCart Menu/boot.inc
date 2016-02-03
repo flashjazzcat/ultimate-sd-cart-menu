@@ -6,8 +6,8 @@
 ;CARTAD	= $bffe				;Initialization address vector
 
 CARTFG_DIAGNOSTIC_CART	equ $80		;Flag value: Directly jump via CARTAD during RESET.
-CARTFG_START_CART	equ $04		;Flag value: Jump via CARTAD and then via CARTCS.
-CARTFG_BOOT		equ $01		;Flag value: Boot peripherals, then start the module.
+CARTFG_START_CART		equ $04		;Flag value: Jump via CARTAD and then via CARTCS.
+CARTFG_BOOT				equ $01		;Flag value: Boot peripherals, then start the module.
 
 COLDSV		equ $E477		; Coldstart (powerup) entry point
 WARMSV		equ $E474		; Warmstart entry point
@@ -44,13 +44,14 @@ PREV_PAGE	= 127
 NEXT_PAGE	= 128
 UP_DIR		= 129
 RESET		= 130
-ACK		= 255
+ACK			= 255
 	.ende
 	
 	
 	.enum CMD
 Refresh		= 1
 Error		= 2
+LoadXEX		= 3
 Reboot		= 255
 	.ende
 	
@@ -63,10 +64,11 @@ FilesAfter	= 2
 
 	.enum EntryType
 Nul		= 0
-File		= 1
+File	= 1
 Dir		= 2
 	.ende
 	
+LoaderAddress	equ $700
 	
 MenuLines	equ 20
 
@@ -77,9 +79,9 @@ MenuLines	equ 20
 ; 2 error (message at $B300)
 ; 255 reboot
 
-ULTIMATE_CART_CMD	equ $AFF0
+ULTIMATE_CART_CMD		equ $AFF0
 ULTIMATE_CART_LIST_FLAG equ $AFF1 ; bit 0 = more files below, bit 1 = more files above
-DIR_BUFFER		equ $B000
+DIR_BUFFER			equ $B000
 ERROR_MSG_BUFFER	equ $B300
 COMMAND_BUFFER		equ $AFF0
 
@@ -129,7 +131,72 @@ TextLineCount	.ds 1
 TempPtr		.ds 2
 WinY		.ds 1
 Height		.ds 1
+ptr1		.ds 2
+ptr2		.ds 2
+ptr3		.ds 2
+FileSize	equ FMSZPG ; .ds 4
 
+
+CIOV	equ $E456
+GINTLK	equ	$03FA
+TRIG3	equ $D013
+
+FMSZPG	equ	$43
+
+	.struct IOCBlock
+ID		.byte
+DevNum	.byte
+Command	.byte
+Status	.byte
+Address	.word
+Put		.word	; put byte address
+Len		.word
+Aux1	.byte 	
+Aux2	.byte
+Aux3	.byte
+Aux4	.byte
+Aux5	.byte
+Aux6	.byte
+	.ends
+	
+	org $0340
+
+IOCB	dta IOCBlock [8]
+
+;	CIO commands
+
+	.enum IOCommand
+Open	= $03
+GetText	= $05
+Read	= $07
+PutText	= $09
+Write	= $0B
+Close	= $0C
+Status	= $0D
+	.ende
+	
+;	CIO aux values
+
+	.enum IOMode
+Read	= $04
+Dir		= $06
+Create	= $08
+Append	= $09
+Update	= $0C
+	.ende
+	
+	
+;	CIO Error Codes
+
+	.enum IOErr
+AlreadyOpen	= 129
+NotOpen		= 133
+EOF			= 136
+NAK			= 139
+NoFunction	= 146
+BadName		= 165
+NotFound	= 170
+	.ende
 
 //
 // Display List constants

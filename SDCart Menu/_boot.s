@@ -27,6 +27,8 @@
 	icl 'boot.inc'
 	icl 'macros.inc'
 	
+VER_MAJ	equ $01
+VER_MIN	equ $01
 
 	opt h-				;Disable Atari COM/XEX file headers
 
@@ -59,7 +61,6 @@ main	.proc
 	jsr InitJoystick
 	jsr SetUpDisplay
 	jsr clear_screen
-;	jsr DisplayHeader
 	jsr DisplayFooter
 	jsr HomeSelection
 main_loop
@@ -76,6 +77,8 @@ GotCmd
 	lsr BootFlag
 	cmp #CMD.Refresh
 	beq display_cmd
+	cmp #CMD.LoadXEX
+	beq LoadXEX
 	cmp #CMD.Error
 	beq display_error
 	cmp #CMD.Reboot
@@ -84,8 +87,13 @@ GotCmd
 	bmi PollLoop
 	jmp Read_keyboard
 	
+LoadXEX				; load XEX
+	jsr CopyXEXLoader
+	jsr send_fpga_ack_wait_clear
+	sei				; prevent GINTLK check in deferred VBI
+	jmp LoadBinaryFile
+	
 display_cmd
-;	jsr HomeSelection
 	sec
 	ror MenuUpFlag
 	jsr RefreshList
@@ -102,7 +110,6 @@ display_error
 reboot_cmd
 	jsr CleanUp
 	jsr send_fpga_ack_wait_clear
-;	jsr CleanUp
 	sei				; prevent GINTLK check in deferred VBI
 	jsr $100
 
@@ -827,8 +834,8 @@ Done
 	sta PrevEntry
 	rts
 	.endp	
-
-
+	
+	
 	
 //
 //	Wait for sync
@@ -907,6 +914,54 @@ Done
 	rts
 	.endl
 	
+
+
+//
+//	XEX Loader
+//
+
+.proc CopyXEXLoader
+	mwa #LoaderCodeStart ptr1
+	mwa #LoaderAddress ptr2
+	mwa #[EndLoaderCode-LoaderCode] ptr3
+	jmp UMove
+	.endp
+	
+
+	
+//
+//	Move bytes from ptr1 to ptr2, length ptr3
+//
+
+
+.proc UMove
+	lda ptr3
+	eor #$FF
+	adc #1
+	sta ptr3
+	lda ptr3+1
+	eor #$FF
+	adc #0
+	sta ptr3+1
+	
+	ldy #0
+Loop
+	lda (ptr1),y
+	sta (ptr2),y
+	iny
+	bne @+
+	inc ptr1+1
+	inc ptr2+1
+@
+	inc ptr3
+	bne Loop
+	inc ptr3+1
+	bne Loop
+	rts
+	.endp
+		
+	
+
 	
 	
 ; ************************ DATA ****************************
@@ -964,6 +1019,316 @@ ErrorMsg
 	
 FontData
 	ins 'sdcart.fnt'
+	
+	
+LoaderCodeStart
+
+	opt f-
+	org LoaderAddress
+	opt f+
+	
+LoaderCode
+	.byte 'L'
+	.byte VER_MAJ
+	.byte VER_MIN
+	
+	.proc LoadBinaryFile
+	ldx #1
+	lda VCount			; wait 2 frames so that cart is disabled
+@
+	cmp VCount
+	req
+	cmp VCount
+	rne
+	dex
+	bpl @-
+	jsr SetGintlk
+	lda #$FF
+	sta $2E0
+	sta $2E1
+	jsr BasicOff
+	jsr CloseDisplay
+	jsr OpenXEXFile
+	ldy #0
+	tya
+@
+	sta $80,y
+	iny
+	bpl @-
+	jsr ClearRAM
+Loop
+	jsr ReadBlock
+	bmi Error
+	bit FirstBlockFlag
+	bpl @+
+	mwa BStart NoRunAdr+1
+	lsr FirstBlockFlag
+@
+	jsr DoInit
+	jmp Loop
+Error
+	lda $2E0
+	and $2E1
+	cmp #$FF
+	beq NoRunAdr
+	jmp ($2E0)
+NoRunAdr
+	jmp $FFFF
+FirstBlockFlag
+	.byte $80
+	.endp
+	
+	
+	
+	.proc DoInit
+	cpw BStart #$02E2
+	bne NotInitBlock
+	jmp ($2E2)
+NotInitBlock
+	rts
+	.endp
+
+
+//
+//	Read block from executable
+//
+
+	.proc ReadBlock
+	jsr ReadWord
+	bmi Error
+	lda HeaderBuf
+	and HeaderBuf+1
+	cmp #$ff
+	bne NoSignature
+	jsr ReadWord
+	bmi Error
+NoSignature
+	mwa HeaderBuf BStart
+	jsr ReadWord
+	mwa HeaderBuf BEnd
+	sbw BEnd BStart BLen
+	inw BLen
+	jsr ReadBuffer
+Error
+	rts
+	.endp
+	
+	
+//
+//	Read XEX file segment
+//	
+	
+	.proc ReadBuffer
+	jsr ReadByte
+	ldy #0
+	sta (BStart),y
+	inw BStart
+	dew BLen
+	lda BLen
+	ora BLen+1
+	bne ReadBuffer
+	ldy #1
+	rts
+	.endp
+	
+	
+	
+//
+//	Read word from XEX
+//
+
+	.proc ReadWord
+	jsr ReadByte
+	bmi Error
+	sta HeaderBuf
+	jsr ReadByte
+	bmi Error
+	sta HeaderBuf+1
+Error
+	rts
+	.endp
+	
+	
+//
+//	Read byte from XEX
+//	Returns Z=1 on EOF
+//
+	
+	.proc ReadByte
+	lda FileSize		; first ensure we're not at the end of the file
+	ora FileSize+1
+	ora FileSize+2
+	ora FileSize+3
+	beq EOF
+	lda $D500
+BufIndex	equ *-2
+	inc BufIndex		; bump address
+	ldy BufIndex
+	bne @+
+	inc Segment			; bump segment if we reached end of buffer
+	ldy Segment
+	sty $D500
+@
+	ldy #1
+	rts
+EOF
+	ldy #IOErr.EOF
+	rts
+	.endp
+	
+	
+//
+//	Open the XEX file
+//
+
+	.proc OpenXEXFile
+	lda #0
+	sta $D500	; get the first chunk of the file, with file length at $d500-$d503
+	sta Segment
+	mda $D500 FileSize	; get the size of the file
+	mva #4 ptr1
+	rts
+	.endp
+	
+	
+	.if 0
+
+	.proc BasicOnOff
+	lda Config.BASIC
+	beq BASICOff
+	.endp
+	
+	.proc BASICOn
+	sei
+	jsr WaitForSync2
+	mva #$0 $3F8
+	mva #$A0 $6A
+	lda portb
+	and #$FD
+	sta portb
+	cli
+	rts
+	.endp
+	.endif
+	
+	.proc BASICOff
+	sei
+	jsr WaitForSync2
+	mva #$01 $3f8
+	mva #$C0 $6A
+	lda portb
+	ora #$02
+	sta portb
+	cli
+	rts
+	.endp
+	
+	
+
+	.proc SetGintlk
+	sta WSYNC
+	sta WSYNC
+	lda TRIG3
+	sta GINTLK
+	rts
+	.endp
+	
+	
+	
+	.proc ClearRAM
+	mwa #EndLoaderCode ptr1
+	sbw SDLSTL ptr1 ptr2		; clear up to display list address
+	
+	lda ptr2
+	eor #$FF
+	clc
+	adc #1
+	sta ptr2
+	lda ptr2+1
+	eor #$FF
+	adc #0
+	sta ptr2+1
+	ldy #0
+	tya
+Loop
+	sta (ptr1),y
+	iny
+	bne @+
+	inc ptr1+1
+@
+	inc ptr2
+	bne Loop
+	inc ptr2+1
+	bne Loop
+	rts
+	.endp
+	
+	
+//
+//	Close Display
+//
+	
+	.proc CloseDisplay
+	jsr WaitForSync2
+	lda #0
+	sta DMACTL
+	sta SDMCTL
+	sei
+	sta nmien
+	mwa OSVBI VVBLKI
+	lda #$22
+	sta SDMCTL
+	mwa #$C0CE vdslst		; ********************** this needs to be saved and reinstated ******************
+	jsr WaitForSync2
+	mva #$40 nmien
+	cli
+	jsr OpenEditor
+	rts
+	.endp
+	
+	
+	.proc OpenEditor
+	ldx #0
+	lda #$0c
+	sta iocb[0].Command
+	jsr ciov
+	mwa #EName iocb[0].Address
+	mva #$0C iocb[0].Aux1
+	mva #$00 iocb[0].Aux2
+	mva #$03 iocb[0].Command
+	jmp ciov
+
+EName
+	.byte 'E:',$9B
+	.endp
+	
+	
+//
+//	Wait for sync
+//
+
+	.proc WaitForSync2
+	lda VCount
+	rne
+	lda VCount
+	req
+	rts
+	.endp
+	
+Segment		.ds 1	; XEX segment number
+HeaderBuf	.ds 2
+BStart		equ FMSZPG+4 ; .ds 2
+BEnd		.ds 2
+BLen		.ds 2
+
+
+EndLoaderCode ; end of relocated code
+
+LoaderCodeSize	= EndLoaderCode-LoaderCode
+	
+	opt f-
+	org LoaderCodeStart + LoaderCodeSize
+	opt f+
 	
 ; ************************ CARTRIDGE CONTROL BLOCK *****************
 
