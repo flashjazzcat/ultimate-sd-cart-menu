@@ -1115,8 +1115,7 @@ NoSignature
 	mwa HeaderBuf BStart
 	jsr ReadWord
 	bmi Error
-	mwa HeaderBuf BEnd
-	sbw BEnd BStart BLen
+	sbw HeaderBuf BStart BLen
 	inw BLen
 	mwa BStart IOPtr
 	jsr ReadBuffer
@@ -1332,7 +1331,6 @@ EName
 	
 HeaderBuf	.ds 2
 BStart		.ds 2
-BEnd		.ds 2
 BLen		.ds 2
 
 
