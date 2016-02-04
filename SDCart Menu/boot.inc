@@ -132,10 +132,7 @@ TextLineCount	.ds 1
 TempPtr		.ds 2
 WinY		.ds 1
 Height		.ds 1
-ptr1		.ds 2
-ptr2		.ds 2
-ptr3		.ds 2
-FileSize	equ FMSZPG ; .ds 4
+
 
 
 DOSINI	equ $0C
@@ -149,7 +146,11 @@ TRIG3	equ $D013
 
 FMSZPG	equ	$43
 
-IOPtr		equ FMSZPG+4
+IOPtr		equ FMSZPG
+FileSize	equ FMSZPG+2 ; .ds 4
+ptr1		equ FMSZPG
+ptr2		equ FMSZPG+2
+ptr3		equ FMSZPG+4
 
 
 	.struct IOCBlock

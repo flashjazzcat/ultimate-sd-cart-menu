@@ -1177,7 +1177,7 @@ SegmentHi equ *-1
 @
 	lda $D500,y		; doesn't matter about speculative reads (?)
 	sta (IOPtr),y
-	sta colbak
+;	sta colbak
 	iny
 	bne @-
 	inc IOPtr+1		; bump address for next time
@@ -1316,7 +1316,7 @@ EName
 	.byte 'E:',$9B
 	.endp
 	
-	
+	.if 0
 //
 //	Wait for sync
 //
@@ -1329,10 +1329,12 @@ EName
 	rts
 	.endp
 	
+	.endif
+	
 HeaderBuf	.ds 2
 BStart		.ds 2
 BLen		.ds 2
-
+;FileSize	.ds 4
 
 EndLoaderCode ; end of relocated code
 
