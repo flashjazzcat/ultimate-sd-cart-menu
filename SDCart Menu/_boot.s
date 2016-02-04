@@ -1114,6 +1114,7 @@ NoSignature
 	mwa HeaderBuf BEnd
 	sbw BEnd BStart BLen
 	inw BLen
+	mwa BStart IOPtr
 	jsr ReadBuffer
 Error
 	rts
@@ -1128,10 +1129,8 @@ Error
 	jsr ReadByte
 	bmi Error
 	ldy #0
-	sta (BStart),y
-;	sta (88),y
-;	inw 88
-	inw BStart
+	sta (IOPtr),y
+	inw IOPtr
 	dew BLen
 	lda BLen
 	ora BLen+1
@@ -1187,13 +1186,6 @@ BufIndex	equ *-2
 Segment equ *-1
 	sty $D500
 @
-;	ldy vcount
-;	sty colbak
-	pha
-	ldy #0
-	sta (88),y
-	inw 88
-	pla
 	ldy #1
 	rts
 EOF
@@ -1219,7 +1211,6 @@ EOF
 	eor #$FF
 	adc L1,y
 	sta FileSize,y
-;	sta (88),y
 	iny
 	dex
 	bpl @-
@@ -1310,7 +1301,7 @@ EName
 	.endp
 	
 HeaderBuf	.ds 2
-;BStart		equ FMSZPG+4 ; .ds 2
+BStart		.ds 2
 BEnd		.ds 2
 BLen		.ds 2
 

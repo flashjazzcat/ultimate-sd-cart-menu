@@ -146,7 +146,7 @@ TRIG3	equ $D013
 
 FMSZPG	equ	$43
 
-BStart		equ FMSZPG+4
+IOPtr		equ FMSZPG+4
 
 
 	.struct IOCBlock
