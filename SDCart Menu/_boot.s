@@ -368,7 +368,13 @@ IsLastEntry				; if we're at the final entry, load next page of list
 	lsr MenuUpFlag
 	cmp #EntryType.Dir
 	beq IsDir
+	cmp #EntryType.XEX
+	beq IsXEX
 	jsr starting_cartridge_message	; not Nul and not Dir, so must be a file
+	ldy CurrEntry
+	jmp SendSelection
+IsXEX
+	jsr StartingXEXLoaderMessage
 	ldy CurrEntry
 	jmp SendSelection
 IsDir
@@ -593,6 +599,11 @@ wait_clear
 	bne ShowMsg
 	.endp
 	
+	
+.proc	StartingXEXLoaderMessage
+	ldax #StartXEXMsg
+	bne ShowMsg
+	.endp
 
 .proc	change_dir_message
 	ldax #ChangeDirMsg
@@ -974,6 +985,8 @@ txtFooter
 	.byte 32,28+128,29+128,'-Move ',30+128,'-Up Dir ','Return'*,'-Select ','X'+128,'-Reboot'
 	.byte 32,32,32,'Ct'*,'+',28+128,29+128,'-Page Up/Dn ','Sh'*,'+','Ct'*,'+',28+128,29+128,'-Start/End',0
 	
+StartXEXMsg
+	.byte 'Starting XEX Loader...',0
 StartCartMsg
 	.byte 'Starting Cartridge...',0
 ChangeDirMsg
@@ -1046,13 +1059,11 @@ LoaderCode
 	bpl @-
 
 	jsr SetGintlk
-	lda #$FF
-	sta $2E0
-	sta $2E1
 	jsr BasicOff
 	cli
 	jsr OpenEditor
 	mwa #EndLoaderCode MEMLO
+	mwa #Return RunVec	; reset run vector
 	ldy #0
 	tya
 @
@@ -1062,35 +1073,28 @@ LoaderCode
 	jsr ClearRAM
 	jsr OpenXEXFile
 Loop
+	mwa #Return IniVec	; reset init vector
 	jsr ReadBlock
 	bmi Error
-	bit FirstBlockFlag
-	bpl @+
-	mwa BStart NoRunAdr+1
-	lsr FirstBlockFlag
+	cpw RunVec #Return
+	bne @+
+	mwa BStart RunVec	; set run address to start of first block
 @
 	jsr DoInit
 	jmp Loop
 Error
-	lda $2E0
-	and $2E1
-	cmp #$FF
-	beq NoRunAdr
-	jmp ($2E0)
-NoRunAdr
-	jmp $FFFF
-FirstBlockFlag
-	.byte $80
+	jmp (RunVec)
+Return
+	rts
 	.endp
 	
 	
+//
+//	Jump through init vector
+//
 	
 	.proc DoInit
-	cpw BStart #$02E2
-	bne NotInitBlock
-	jmp ($2E2)
-NotInitBlock
-	rts
+	jmp (IniVec)
 	.endp
 
 
@@ -1121,25 +1125,6 @@ Error
 	.endp
 	
 	
-//
-//	Read XEX file segment
-//	
-	
-	.proc ReadBuffer
-	jsr ReadByte
-	bmi Error
-	ldy #0
-	sta (IOPtr),y
-	inw IOPtr
-	dew BLen
-	lda BLen
-	ora BLen+1
-	bne ReadBuffer
-	ldy #1
-Error
-	rts
-	.endp
-	
 	
 	
 //
@@ -1147,40 +1132,31 @@ Error
 //
 
 	.proc ReadWord
-	jsr ReadByte
-	bmi Error
-	sta HeaderBuf
-	jsr ReadByte
-	bmi Error
-	sta HeaderBuf+1
-Error
-	rts
+	mwa #HeaderBuf IOPtr
+	mwa #2 BLen		; fall into ReadBuffer
 	.endp
-	
-	
+
+
+
 //
-//	Read byte from XEX
+//	Read buffer from XEX
 //	Returns Z=1 on EOF
 //
 	
-	.proc ReadByte
+	.proc ReadBuffer
 	lda FileSize		; first ensure we're not at the end of the file
 	ora FileSize+1
 	ora FileSize+2
 	ora FileSize+3
-	beq EOF
-	inc FileSize
-	bne @+
-	inc FileSize+1
-	bne @+
-	inc FileSize+2
-	bne @+
-	inc FileSize+3
-@
-	lda $D500
-BufIndex	equ *-2
-	inc BufIndex		; bump address
-	bne @+
+	jeq EOF
+	lda BLen
+	ora BLen+1
+	beq Done
+	
+	inc BufIndex
+	bne NoBurst			; don't burst unless we're at the end of the buffer
+	
+BurstLoop
 	inc SegmentLo			; bump segment if we reached end of buffer
 	bne @+
 	inc SegmentHi
@@ -1191,12 +1167,65 @@ SegmentLo equ *-1
 SegmentHi equ *-1
 	sty $D500
 	stx $D501
+
+	lda Blen+1		; see if we can burst read the next 256 bytes
+	beq NoBurst
+	lda FileSize+1	; ensure buffer and remaining bytes in file are both >= 256
+	ora FileSize+2
+	ora FileSize+3
+	beq NoBurst
+	ldy #0			; read a whole page into RAM
 @
+	lda $D500,y		; doesn't matter about speculative reads (?)
+	sta (IOPtr),y
+	sta colbak
+	iny
+	bne @-
+	inc IOPtr+1		; bump address for next time
+	ldy #0
+	ldx #3
+	sec
+@
+	lda FileSize,y	; reduce file size by 256
+	sbc L256,y
+	sta FileSize,y
+	iny
+	dex
+	bpl @-
+	dec Blen+1		; reduce buffer length by 256
+	dec BufIndex
+	jmp ReadBuffer
+
+NoBurst
+	lda $D500
+BufIndex	equ *-2
+	ldy #0
+	sta (IOPtr),y
+	inw IOPtr
+	dew BLen
+	
+	ldy #0				; subtract 1 from file size
+	ldx #3
+	sec
+@
+	lda FileSize,y
+	sbc L1,y
+	sta FileSize,y
+	iny
+	dex
+	bpl @-
+	jmp ReadBuffer
+	
+Done
 	ldy #1
 	rts
 EOF
 	ldy #IOErr.EOF
 	rts
+L1
+	.dword 1
+L256
+	.dword 256
 	.endp
 	
 	
@@ -1208,24 +1237,18 @@ EOF
 	lda #0
 	sta $D500	; get the first chunk of the file, with file length at $d500-$d503
 	sta $D501
-	sta ReadByte.SegmentLo
-	sta ReadByte.SegmentHi
-	ldy #0
-	ldx #3
-	clc
+	sta ReadBuffer.SegmentLo
+	sta ReadBuffer.SegmentHi
+	ldy #3
 @
-	lda $D500,y		; get complement of file size
-	eor #$FF
-	adc L1,y
+	lda $D500,y
 	sta FileSize,y
-	iny
-	dex
+	dey
 	bpl @-
-	mva #4 ReadByte.BufIndex
+	mva #3 ReadBuffer.BufIndex
 	rts
-L1
-	.dword 1
 	.endp
+
 	
 	
 	.proc BASICOff

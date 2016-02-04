@@ -66,6 +66,7 @@ FilesAfter	= 2
 Nul		= 0
 File	= 1
 Dir		= 2
+XEX		= 3
 	.ende
 	
 LoaderAddress	equ $700
@@ -138,7 +139,9 @@ FileSize	equ FMSZPG ; .ds 4
 
 
 DOSINI	equ $0C
-MEMLO	equ $2E7
+MEMLO	equ $02E7
+RunVec	equ $02E0
+IniVec	equ $02E2
 
 CIOV	equ $E456
 GINTLK	equ	$03FA
