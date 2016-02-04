@@ -1181,10 +1181,16 @@ Error
 BufIndex	equ *-2
 	inc BufIndex		; bump address
 	bne @+
-	inc Segment			; bump segment if we reached end of buffer
+	inc SegmentLo			; bump segment if we reached end of buffer
+	bne @+
+	inc SegmentHi
+@
 	ldy #0
-Segment equ *-1
+SegmentLo equ *-1
+	ldx #0
+SegmentHi equ *-1
 	sty $D500
+	stx $D501
 @
 	ldy #1
 	rts
@@ -1202,7 +1208,8 @@ EOF
 	lda #0
 	sta $D500	; get the first chunk of the file, with file length at $d500-$d503
 	sta $D501
-	sta ReadByte.Segment
+	sta ReadByte.SegmentLo
+	sta ReadByte.SegmentHi
 	ldy #0
 	ldx #3
 	clc
