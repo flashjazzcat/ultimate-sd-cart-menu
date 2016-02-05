@@ -1061,7 +1061,7 @@ LoaderCode
 	jsr SetGintlk
 	jsr BasicOff
 	cli
-	jsr OpenEditor
+;	jsr OpenEditor
 	mwa #EndLoaderCode MEMLO
 	mwa #Return RunVec	; reset run vector
 	ldy #0
@@ -1071,6 +1071,7 @@ LoaderCode
 	iny
 	bpl @-
 	jsr ClearRAM
+	jsr OpenEditor
 	jsr OpenXEXFile
 Loop
 	mwa #Return IniVec	; reset init vector
@@ -1094,6 +1095,14 @@ Return
 //
 	
 	.proc DoInit
+;	lda #8
+;	sta consol
+;@
+;	lda vcount
+;	sta colbak
+;	lda Consol
+;	cmp #7
+;	beq @-
 	jmp (IniVec)
 	.endp
 
@@ -1252,7 +1261,8 @@ L256
 	
 	.proc BASICOff
 	mva #$01 $3f8
-	mva #$C0 $6A
+;	mva #$C0 $6A
+	mva #$80 $6a
 	lda portb
 	ora #$02
 	sta portb
@@ -1273,7 +1283,8 @@ L256
 	
 	.proc ClearRAM
 	mwa #EndLoaderCode ptr1
-	sbw SDLSTL ptr1 ptr2		; clear up to display list address
+	sbw $c000 ptr1 ptr2
+;	sbw SDLSTL ptr1 ptr2		; clear up to display list address
 	
 	lda ptr2
 	eor #$FF
@@ -1302,6 +1313,7 @@ Loop
 	
 	
 	.proc OpenEditor
+;	.if 0
 	ldx #0
 	lda #$0c
 	sta iocb[0].Command
@@ -1314,8 +1326,25 @@ Loop
 
 EName
 	.byte 'E:',$9B
+;	.endif
+	
+	.if 0
+	lda #0
+	sta SDMCTL
+	sta Color4
+	sta ColBak
+	mwa #DummyDL SDLSTL
+	mva #$22 SDMCTL
+	rts
+	
+DummyDL
+	.byte DL.Blank8
+	.byte DL.VBL
+	.word DummyDL
+	.endif
 	.endp
 	
+
 	.if 0
 //
 //	Wait for sync
