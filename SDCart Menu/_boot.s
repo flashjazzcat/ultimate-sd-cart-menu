@@ -1097,14 +1097,6 @@ Return
 //
 	
 	.proc DoInit
-;	lda #8
-;	sta consol
-;@
-;	lda vcount
-;	sta colbak
-;	lda Consol
-;	cmp #7
-;	beq @-
 	jmp (IniVec)
 	.endp
 
@@ -1188,7 +1180,6 @@ SegmentHi equ *-1
 @
 	lda $D500,y		; doesn't matter about speculative reads (?)
 	sta (IOPtr),y
-;	sta colbak
 	iny
 	bne @-
 	inc IOPtr+1		; bump address for next time
@@ -1275,11 +1266,7 @@ L256
 	.proc SetGintlk
 	sta WSYNC
 	sta WSYNC
-@
 	lda TRIG3
-	lda vcount
-	sta colbak
-	bne @-
 	sta GINTLK
 	rts
 	.endp
@@ -1318,7 +1305,6 @@ Loop
 	
 	
 	.proc OpenEditor
-;	.if 0
 	ldx #0
 	lda #$0c
 	sta iocb[0].Command
@@ -1331,24 +1317,10 @@ Loop
 
 EName
 	.byte 'E:',$9B
-;	.endif
-	
-	.if 0
-	lda #0
-	sta SDMCTL
-	sta Color4
-	sta ColBak
-	mwa #DummyDL SDLSTL
-	mva #$22 SDMCTL
-	rts
-	
-DummyDL
-	.byte DL.Blank8
-	.byte DL.VBL
-	.word DummyDL
-	.endif
+
 	.endp
 	
+
 
 	.if 0
 //
