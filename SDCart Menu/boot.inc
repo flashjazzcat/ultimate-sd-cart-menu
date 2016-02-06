@@ -255,6 +255,7 @@ NotFound	= 170
 TextLineLenTab	equ $1F00
 ColourTable	equ $1F80
 OSVBI		equ $1FF0
+OSDLI		equ $1FF2
 FrameBuffer	equ $2000		; keep this low so it works on a 600XL
 
 //

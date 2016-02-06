@@ -13,6 +13,7 @@
 	sei
 	mva #>FontData CHBAS
 	mwa #DisplayList SDLSTL
+	mwa VDSLST OSDLI
 	mwa #DLI VDSLST
 	mva #0 DLICount
 	mwa VVBLKI OSVBI

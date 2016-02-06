@@ -91,8 +91,8 @@ GotCmd
 LoadXEX				; load XEX
 	jsr CleanUp
 ;	jsr CopyXEXLoader
-	jsr send_fpga_ack_wait_clear
 	sei				; prevent GINTLK check in deferred VBI
+	jsr send_fpga_ack_wait_clear
 	jmp LoadBinaryFile
 	
 display_cmd
@@ -659,6 +659,7 @@ wait_clear
 	sei
 	mva #$0 NMIEN			; disable interrupts
 	mwa OSVBI VVBLKI		; restore OS VBL
+	mwa OSDLI VDSLST		; reinstate OS DLI vector
 	lda #0
 	sta SDMCTL
 	sta DMACTL			; make sure screen blanks out immediately
@@ -1048,7 +1049,7 @@ LoaderCode
 	.byte VER_MIN
 	
 	.proc LoadBinaryFile
-	ldx #1
+	ldx #2
 	lda VCount			; wait 2 frames so that cart is disabled
 @
 	cmp VCount
@@ -1061,7 +1062,7 @@ LoaderCode
 	jsr SetGintlk
 	jsr BasicOff
 	cli
-;	jsr OpenEditor
+	jsr OpenEditor
 	mwa #EndLoaderCode MEMLO
 	mwa #Return RunVec	; reset run vector
 	ldy #0
@@ -1071,9 +1072,10 @@ LoaderCode
 	iny
 	bpl @-
 	jsr ClearRAM
-	jsr OpenEditor
+;	jsr OpenEditor
 	jsr OpenXEXFile
 Loop
+;	sei
 	mwa #Return IniVec	; reset init vector
 	jsr ReadBlock
 	bmi Error
@@ -1261,8 +1263,7 @@ L256
 	
 	.proc BASICOff
 	mva #$01 $3f8
-;	mva #$C0 $6A
-	mva #$80 $6a
+	mva #$C0 $6A
 	lda portb
 	ora #$02
 	sta portb
@@ -1274,7 +1275,11 @@ L256
 	.proc SetGintlk
 	sta WSYNC
 	sta WSYNC
+@
 	lda TRIG3
+	lda vcount
+	sta colbak
+	bne @-
 	sta GINTLK
 	rts
 	.endp
@@ -1283,8 +1288,8 @@ L256
 	
 	.proc ClearRAM
 	mwa #EndLoaderCode ptr1
-	sbw $c000 ptr1 ptr2
-;	sbw SDLSTL ptr1 ptr2		; clear up to display list address
+;	sbw $c000 ptr1 ptr2
+	sbw SDLSTL ptr1 ptr2		; clear up to display list address
 	
 	lda ptr2
 	eor #$FF
@@ -1359,6 +1364,8 @@ DummyDL
 	.endp
 	
 	.endif
+	
+
 	
 HeaderBuf	.ds 2
 BStart		.ds 2
