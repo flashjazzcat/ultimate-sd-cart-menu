@@ -90,7 +90,6 @@ GotCmd
 	
 LoadXEX				; load XEX
 	jsr CleanUp
-;	jsr CopyXEXLoader
 	sei				; prevent GINTLK check in deferred VBI
 	jsr send_fpga_ack_wait_clear
 	jmp LoadBinaryFile
@@ -566,17 +565,15 @@ wait_clear
 
 
 .proc	show_error
-	jsr OpenWindow
 	ldax #ErrorMsg
 	jsr ShowMsg
-	ldx #70
-@
-	jsr WaitForSync
-	dex
-	bpl @-
-	rts
-
-;	jmp WaitKey
+	jmp *
+;	ldx #70
+;@
+;	jsr WaitForSync
+;	dex
+;	bpl @-
+;	rts
 	.endp
 	
 
@@ -1339,10 +1336,9 @@ EName
 	
 
 	
-HeaderBuf	.ds 2
-BStart		.ds 2
-BLen		.ds 2
-;FileSize	.ds 4
+HeaderBuf	.word 0
+BStart		.word 0
+BLen		.word 0
 
 EndLoaderCode ; end of relocated code
 
